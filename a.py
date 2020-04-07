@@ -2,7 +2,7 @@ import numpy as np
 import numba as nb
 import util
 from numba.typed import List,Dict #numba typedList and typedDict
-from scipy.stats import multivariate_normal as mvnpdf
+from scipy.stats import multivariate_normal as mvn
 
 njitParallel = nb.njit(parallel=True,fastmath=True)
 njitSerial = nb.njit(parallel=False,fastmath=True)
@@ -41,7 +41,7 @@ class Dynamic:
         return self.__ny
 
 class Simulate:
-    def __init__(self,steps,dynamic,nbases,L,timeStep=2000,PFweightNum=30):
+    def __init__(self,steps,dynamic,u,y,nbases,L,R=0.1,timeStep=2000,PFweightNum=30):
         self.__dynamic = dynamic
         self.__steps = steps
         self.__nbases = nbases #assumed to be equal to all x and u
@@ -56,9 +56,18 @@ class Simulate:
         self.__PFweight = np.zeros((self.__timeStep,self.__PFweightNum))
         self.__a = self.__PFweight.copy()#I dont know what a is
         self.__xPF = np.zeros((self.__dynamic.nx,self.__PFweightNum,self.__timeStep))
+        self.__u = u
+        self.__y = y
+        self.__R = R
+
+        
     
     def addmodel(self,newA,newQ):
         self.__models.append((newA,newQ))
+
+    #Assume that observation function gives the last element of x
+    def observe(self,t):
+        return self.__xPF[-1,:,t]
 
     
     @property
@@ -85,28 +94,62 @@ class Simulate:
     def steps(self):
         return self.__steps
 
+    @property
+    def u(self):
+        return self.__u
+
+    @property
+    def y(self):
+        return self.__y
+
+    @property
+    def R(self):
+        return self.__R
+
+
+
     def evaluate_latest_model(self,x,u):
         A,Q = self.__models[-1]
         return A@util.basis(self.__index,self.__L,np.concatenate((x,u)))
 
 
-    def runParticleFilter(self,k,u,Qchol):
+    def __runParticleFilter(self,k):
+        Q = self.__models[-1][1]
+        Qchol = np.linalg.cholesky(Q)
         for t in range(self.__timeStep):
             if t>=1:
                 if k>0:
                     self.__a[t,:-1] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum-1)
+                    f = self.evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
+                    self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__timeStep-1)
+                    waN = self.__PFweight[t-1,:]*mvn.pdf(f,self.__xPF[:,-1,t],Q)
+                    waN /= np.sum(waN)
+                    self.__a[t,-1] = util.systematic_resampling(waN,1)
+                else:
+                    self.__a[t,:] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum)
+                    f = self.evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
+                    self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__timeStep-1)
 
-                    self.__xPF[:,:-1,t] = self.evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],u[:,t-1]) + Qchol@np.random.randn(self.nx,self.__timeStep-1)
 
-                    waN = self.__PFweight[t-1,:]*
-
+            log_w = -0.5*(self.observe(t)-self.y)^2/self.R
+            self.__PFweight[t,:] = np.exp(log_w-np.max(log_w))
+            self.__PFweight[t,:] /= np.sum(self.__PFweight[t,:])
 
 
 
 
     def run(self):
+        x_prim = np.zeros((self.nx,1,self.__timeStep))
         for k in range(self.__steps):
-            Qchol = np.linalg.chol(self.__models[-1][1])
+            self.__runParticleFilter(k)
+
+
+            star = util.systematic_resampling(self.__PFweight[-1,:],1)
+            x_prim[:,1,-1] = self.__xPF[:,star,-1]
+
+            
+
+            
 
             
 
