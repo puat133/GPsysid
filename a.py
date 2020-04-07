@@ -8,6 +8,37 @@ njitParallel = nb.njit(parallel=True,fastmath=True)
 njitSerial = nb.njit(parallel=False,fastmath=True)
 
 
+#some test functions, required to make a class declaration (wierd)
+@util.njitSerial
+def TEST_F(x,u):
+    #[(x(1)/(1+x(1)^2))*sin(x(2)); x(2)*cos(x(2)) + x(1)*exp(-(x(1)^2+x(2)^2)/8) + u^3/(1+u^2+0.5*cos(x(1)+x(2)))];
+    return np.array([
+                    np.sin(x[1])*x[0]/(1.+x[0]*x[0]),
+                    x[1]*np.cos(x[1]) + x[0]*np.exp(-(x[0]*x[0]+x[1]*x[1])/8) + u*u*u/(1.+ u*u + 0.5*np.cos(x[0]+x[1]))
+                    ])
+NB_TYPE_DYN_FUN = nb.typeof(TEST_F)
+@util.njitSerial
+def TEST_G(x):
+    #x(1)/(1+0.5*sin(x(2))) + x(2)/(1+0.5*sin(x(1)));
+    return np.array([x[0]/(1+0.5*np.sin(x[1]))  + x[1]/(1.+0.5*np.sin(x[0]))])
+NB_TYPE_MEAS_FUN = nb.typeof(TEST_G)
+
+DEFAULT_LIST = List()
+DEFAULT_LIST.append((np.random.randn(2,2),np.random.randn(2,2)))
+NB_TYPE_LIST = nb.typeof(DEFAULT_LIST)
+
+  
+
+spec=[ ('__nx',nb.int64),
+       ('__nu',nb.int64),
+       ('__ny',nb.int64),
+       ('__x',nb.float64[::1]),
+       ('__y',nb.float64[::1]),
+       ('__dynamicFun',nb.typeof(NB_TYPE_DYN_FUN)),
+       ('__measFun',nb.typeof(NB_TYPE_MEAS_FUN)),
+]
+
+@nb.jitclass(spec)
 class Dynamic:
     def __init__(self,dynamicFun,measFun,nx,nu,ny):
         self.__dynamicFun = dynamicFun
@@ -18,7 +49,6 @@ class Dynamic:
         self.__x = np.zeros(nx)
         self.__y = np.zeros(ny)
         
-
 
     def oneStep(self,x,u):
         return  self.__dynamicFun(x,u)
@@ -39,6 +69,10 @@ class Dynamic:
     @property
     def ny(self):
         return self.__ny
+
+
+NB_TYPE_DYNAMIC = nb.deferred_type()
+NB_TYPE_DYNAMIC.define(Dynamic.class_type.instance_type)
 
 class Simulate:
     def __init__(self,steps,dynamic,u,y,nbases,L,R=0.1,timeStep=2000,PFweightNum=30):
@@ -129,26 +163,25 @@ class Simulate:
     def iB(self,new_iB):
         self.__iB = new_iB
 
-    def evaluate_latest_model(self,x,u):
-        A,Q = self.__models[-1]
-        return self.__iA@x + self.__iB@u+ A@util.basis(self.__index,self.__L,np.concatenate((x,u)))
+    def __evaluate_latest_model(self,x,u):
+        return util.evaluate_latest_model(self.__iA,self.__iB,self.__A,self.__index,self.__L,x,u)
 
 
     def __runParticleFilter(self,k):
-        Q = self.__models[-1][1]
-        Qchol = np.linalg.cholesky(Q)
+        
+        Qchol = np.linalg.cholesky(self.__Q)
         for t in range(self.__timeStep):
             if t>=1:
                 if k>0:
                     self.__a[t,:-1] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum-1)
-                    f = self.evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
+                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
                     self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__timeStep-1)
-                    waN = self.__PFweight[t-1,:]*mvn.pdf(f,self.__xPF[:,-1,t],Q)
+                    waN = self.__PFweight[t-1,:]*mvn.pdf(f,self.__xPF[:,-1,t],self.__Q)
                     waN /= np.sum(waN)
                     self.__a[t,-1] = util.systematic_resampling(waN,1)
                 else:
                     self.__a[t,:] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum)
-                    f = self.evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
+                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
                     self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__timeStep-1)
 
 
@@ -157,15 +190,9 @@ class Simulate:
             self.__PFweight[t,:] /= np.sum(self.__PFweight[t,:])
 
     def __update_statistics(self):
-        #compute statistics
-        linear_part = self.iA@self.__x_prim[:,0,:-1] + self.iB@self.u[:-1]
-        zeta = self.__x_prim[:,0,1:-1] - linear_part
-        z = util.basis(self.__index,self.__L,np.vstack((self.__x_prim[:,0,:-1],self.u[:-1])))
-        Phi = np.outer(zeta,zeta)
-        Psi = np.outer(zeta,z)
-        Sig = np.outer(z,z)
-        newModel = util.gibbsParam(Phi,Psi,Sig,self.__V,self.__I,self.__lQ,self.__timeStep-1,self.__I)
-        self.__models.append(newModel)
+        Phi,Psi,Sig = util.compute_Phi_Psi_Sig(self.__iA,self.__iB,self.__x_prim,self.__index,self.__L,self.__u)
+        self.__A,self.__Q = util.gibbsParam(Phi,Psi,Sig,self.__V,self.__I,self.__lQ,self.__timeStep-1,self.__I)
+        self.__models.append((self.__A,self.__Q))
 
 
 

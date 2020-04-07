@@ -102,6 +102,27 @@ def spectrumRadial(eig,sf=1.,ell=1.):
     return sf*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(np.pi*np.pi*ell*ell*eig*eig))
 
 
+@njitSerial
+def evaluate_latest_model(iA,iB,A,index,L,x,u):
+    return iA@x + iB@u+ A@basis(index,L,np.concatenate((x,u)))
+
+@njitSerial
+def compute_Phi_Psi_Sig(iA,iB,x_prim,index,L,u):
+    #compute statistics
+    linear_part = iA@x_prim[:,0,:-1] + iB@u[:-1]
+    zeta = x_prim[:,0,1:-1] - linear_part
+    z = basis(index,L,np.vstack((x_prim[:,0,:-1],u[:-1])))
+    Phi = np.outer(zeta,zeta)
+    Psi = np.outer(zeta,z)
+    Sig = np.outer(z,z)
+
+    return Phi,Psi,Sig
+
+
+
+        
+
+
 
 
 
