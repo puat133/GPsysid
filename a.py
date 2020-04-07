@@ -2,6 +2,7 @@ import numpy as np
 import numba as nb
 import util
 from numba.typed import List,Dict #numba typedList and typedDict
+from scipy.stats import multivariate_normal as mvnpdf
 
 njitParallel = nb.njit(parallel=True,fastmath=True)
 njitSerial = nb.njit(parallel=False,fastmath=True)

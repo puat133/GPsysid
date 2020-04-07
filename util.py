@@ -28,7 +28,7 @@ def systematic_resampling(W,N):
 
     return idx
 
-def covM()
+
 # @njitSerial
 def gibbsParam(Phi, Psi, Sigma, V, Lambda, l, T,I):
     M = np.zeros((V.shape[0],Phi.shape[0]))
