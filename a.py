@@ -174,14 +174,14 @@ class Simulate:
             if t>=1:
                 if k>0:
                     self.__a[t,:-1] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum-1)
-                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
+                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
                     self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__timeStep-1)
                     waN = self.__PFweight[t-1,:]*mvn.pdf(f,self.__xPF[:,-1,t],self.__Q)
                     waN /= np.sum(waN)
                     self.__a[t,-1] = util.systematic_resampling(waN,1)
                 else:
                     self.__a[t,:] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum)
-                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.u[:,t-1])
+                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
                     self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__timeStep-1)
 
 

@@ -6,34 +6,33 @@ import numba as nb
 from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
 
+jitSerial = nb.jit(fparallel=False,astmath=True)
+jitParallel = nb.jit(parallel=True,fastmath=True)
 njitParallel = nb.njit(parallel=True,fastmath=True)
 njitSerial = nb.njit(parallel=False,fastmath=True)
 
 
 '''
 '''
-@nb.jit()
+@njitSerial
 def systematic_resampling(W,N):
     W /= np.sum(W)
     u = (1/N)*np.random.rand()
-    idx = np.zeros(N)
+    idx = np.zeros(N,dtype=np.int64)
     q = 0
     n = 0
-    for i in range(N):
+    for i in nb.prange(N):
         while q<u:
             q += W[n]
             n +=1
-        idx[i] = n
+        idx[i] = n#python start from 0
         u += 1/N
 
-    return idx
+    return idx-1
 
-
-# @njitSerial
-#V is assumed to be diagonal
-def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
-    M = np.zeros((vdiag.shape[0],Phi.shape[0]))
-    # Vinv = np.linalg.solve(M,I)
+@njitSerial
+def gibbParamPre(Phi, Psi, Sigma, vdiag, Lambda,I):
+    M = np.zeros((vdiag.shape[0],Phi.shape[0])) #this is stupid
     MVinv = M/vdiag #@Vinv
     Phibar = Phi + MVinv@M.T
     Psibar = Psi + MVinv
@@ -41,11 +40,25 @@ def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
     SigbarInv = np.linalg.solve(Sigbar,I)
     cov_M = Lambda+Phibar - (Psibar@SigbarInv@Psibar.T)
     cov_M_sym = 0.5*(cov_M+cov_M.T)
-    Q = invwishart.pdf(cov_M_sym,df=T+l,scale=1.)
+    return cov_M_sym,Psibar,SigbarInv
+
+
+@njitSerial
+def gibbParamPost(Phi,vdiag,Psibar,SigbarInv,Q):
     X = np.random.randn(Phi.shape[0],vdiag.shape[0])
     post_mean = Psibar@SigbarInv
     A =post_mean + np.linalg.cholesky(Q)@X@np.linalg.cholesky(SigbarInv)    
+    return A
+
+
+#V is assumed to be diagonal
+@jitSerial
+def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
+    cov_M_sym,Psibar,SigbarInv = gibbParamPre(Phi, Psi, Sigma, vdiag, Lambda,I)
+    Q = invwishart.pdf(cov_M_sym,df=T+l,scale=1.)
+    A = gibbParamPost(Phi,vdiag,Psibar,SigbarInv,Q)
     return A,Q
+    
 
 
 
@@ -62,10 +75,6 @@ def basis(index,L,x):
     return basis
 
     
-
-# @njitSerial
-def expand(x,y):
-    return np.kron(x,y)
 
 @njitSerial
 def power_kron(x,n):
