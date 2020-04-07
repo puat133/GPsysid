@@ -56,12 +56,17 @@ class Simulate:
         self.__PFweight = np.zeros((self.__timeStep,self.__PFweightNum))
         self.__a = self.__PFweight.copy()#I dont know what a is
         self.__xPF = np.zeros((self.__dynamic.nx,self.__PFweightNum,self.__timeStep))
+        self.__x_prim = np.zeros((self.nx,1,self.__timeStep))
         self.__u = u
         self.__y = y
         self.__R = R
         self.__iA = np.zeros((self.nx,self.nx))
         self.__iB = np.zeros((self.nx,self.nu))
         self.__I = np.eye(self.nx)
+        self.__lQ = 100
+        self.__lambda = np.sqrt(util.eigen(self.__index,self.__L))
+        self.__ell = 1.
+        self.__V = 1000*util.spectrumRadial(self.__lambda,self.__ell)
         
     
     def addmodel(self,newA,newQ):
@@ -117,12 +122,12 @@ class Simulate:
         return self.__iB
 
     @iA.setter
-    def iA(self,new_iA)
+    def iA(self,new_iA):
         self.__iA = new_iA
 
     @iB.setter
-    def iA(self,new_iA)
-        self.__iA = new_iB
+    def iB(self,new_iB):
+        self.__iB = new_iB
 
     def evaluate_latest_model(self,x,u):
         A,Q = self.__models[-1]
@@ -151,36 +156,40 @@ class Simulate:
             self.__PFweight[t,:] = np.exp(log_w-np.max(log_w))
             self.__PFweight[t,:] /= np.sum(self.__PFweight[t,:])
 
+    def __update_statistics(self):
+        #compute statistics
+        linear_part = self.iA@self.__x_prim[:,0,:-1] + self.iB@self.u[:-1]
+        zeta = self.__x_prim[:,0,1:-1] - linear_part
+        z = util.basis(self.__index,self.__L,np.vstack((self.__x_prim[:,0,:-1],self.u[:-1])))
+        Phi = np.outer(zeta,zeta)
+        Psi = np.outer(zeta,z)
+        Sig = np.outer(z,z)
+        newModel = util.gibbsParam(Phi,Psi,Sig,self.__V,self.__I,self.__lQ,self.__timeStep-1,self.__I)
+        self.__models.append(newModel)
 
 
 
     def run(self):
-        x_prim = np.zeros((self.nx,1,self.__timeStep))
+        
         for k in range(self.__steps):
             self.__runParticleFilter(k)
 
 
             star = util.systematic_resampling(self.__PFweight[-1,:],1)
-            x_prim[:,0,-1] = self.__xPF[:,star,-1]
+            self.__x_prim[:,0,-1] = self.__xPF[:,star,-1]
 
             #loop from the back
             for t in np.flip(np.arange(self.__timeStep)):
                 star = self.__a[t,star]
-                x_prim[:,0,t-1] = self.__xPF[:,star,t-1]
+                self.__x_prim[:,0,t-1] = self.__xPF[:,star,t-1]
 
             print('Sampling. k = {}/{}'.format(k,self.__steps))
 
+            self.__update_statistics()
 
-            self.__models.append(util.gibbsParam())
 
-            #compute statistics
-            linear_part = self.iA@x_prim[:,0,:-1] + self.iB@u[:-1]
-            zeta = x_prim[:,0,1:-1] - linear_part
-            z = util.basis(x_prim[:,0,:-1],u[:-1])
-            Phi = np.outer(zeta,zeta)
-            Psi = np.outer(zeta,z)
-            Sig = np.outer(z,z)
-            self.__models.append(util.gibbsParam(Phi,Psi,Sig,V,LambdaQ,lQ,T-1,self.__I))
+
+            
 
 
 

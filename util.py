@@ -30,18 +30,19 @@ def systematic_resampling(W,N):
 
 
 # @njitSerial
-def gibbsParam(Phi, Psi, Sigma, V, Lambda, l, T,I):
-    M = np.zeros((V.shape[0],Phi.shape[0]))
-    Vinv = np.linalg.solve(M,I)
-    MVinv = M@Vinv
+#V is assumed to be diagonal
+def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
+    M = np.zeros((vdiag.shape[0],Phi.shape[0]))
+    # Vinv = np.linalg.solve(M,I)
+    MVinv = M/vdiag #@Vinv
     Phibar = Phi + MVinv@M.T
     Psibar = Psi + MVinv
-    Sigbar = Sigma + Vinv
+    Sigbar = Sigma + np.diag(1/vdiag)
     SigbarInv = np.linalg.solve(Sigbar,I)
     cov_M = Lambda+Phibar - (Psibar@SigbarInv@Psibar.T)
     cov_M_sym = 0.5*(cov_M+cov_M.T)
     Q = invwishart.pdf(cov_M_sym,df=T+l,scale=1.)
-    X = np.random.randn(Phi.shape[0],V.shape[0])
+    X = np.random.randn(Phi.shape[0],vdiag.shape[0])
     post_mean = Psibar@SigbarInv
     A =post_mean + np.linalg.cholesky(Q)@X@np.linalg.cholesky(SigbarInv)    
     return A,Q
