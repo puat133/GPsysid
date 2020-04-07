@@ -59,7 +59,9 @@ class Simulate:
         self.__u = u
         self.__y = y
         self.__R = R
-
+        self.__iA = np.zeros((self.nx,self.nx))
+        self.__iB = np.zeros((self.nx,self.nu))
+        self.__I = np.eye(self.nx)
         
     
     def addmodel(self,newA,newQ):
@@ -106,11 +108,25 @@ class Simulate:
     def R(self):
         return self.__R
 
+    @property
+    def iA(self):
+        return self.__iA
 
+    @property
+    def iB(self):
+        return self.__iB
+
+    @iA.setter
+    def iA(self,new_iA)
+        self.__iA = new_iA
+
+    @iB.setter
+    def iA(self,new_iA)
+        self.__iA = new_iB
 
     def evaluate_latest_model(self,x,u):
         A,Q = self.__models[-1]
-        return A@util.basis(self.__index,self.__L,np.concatenate((x,u)))
+        return self.__iA@x + self.__iB@u+ A@util.basis(self.__index,self.__L,np.concatenate((x,u)))
 
 
     def __runParticleFilter(self,k):
@@ -145,9 +161,28 @@ class Simulate:
 
 
             star = util.systematic_resampling(self.__PFweight[-1,:],1)
-            x_prim[:,1,-1] = self.__xPF[:,star,-1]
+            x_prim[:,0,-1] = self.__xPF[:,star,-1]
 
-            
+            #loop from the back
+            for t in np.flip(np.arange(self.__timeStep)):
+                star = self.__a[t,star]
+                x_prim[:,0,t-1] = self.__xPF[:,star,t-1]
+
+            print('Sampling. k = {}/{}'.format(k,self.__steps))
+
+
+            self.__models.append(util.gibbsParam())
+
+            #compute statistics
+            linear_part = self.iA@x_prim[:,0,:-1] + self.iB@u[:-1]
+            zeta = x_prim[:,0,1:-1] - linear_part
+            z = util.basis(x_prim[:,0,:-1],u[:-1])
+            Phi = np.outer(zeta,zeta)
+            Psi = np.outer(zeta,z)
+            Sig = np.outer(z,z)
+            self.__models.append(util.gibbsParam(Phi,Psi,Sig,V,LambdaQ,lQ,T-1,self.__I))
+
+
 
             
 
