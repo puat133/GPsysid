@@ -8,7 +8,7 @@ from scipy.stats import invwishart
 _LOG_2PI = np.log(2 * np.pi)
 PARALLEL = False
 FASTMATH = True
-jitSerial = nb.jit(parallel=False,astmath=FASTMATH)
+jitSerial = nb.jit(parallel=False,fastmath=FASTMATH)
 jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH)
 njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH)
 njitSerial = nb.njit(parallel=False,fastmath=FASTMATH)
@@ -155,26 +155,27 @@ def mvnpdf(x,mean,Sigma):
     return np.exp(_logpdf(x,mean,Sigma))
 
 
-# def runParticleFilter(self,k):
-    
-#     Qchol = np.linalg.cholesky(Q)
-#     # for t in trange(timeStep,desc='SMC - {} th'.format(k+1)):
-#     for t in range(timeStep):
-#         if t>=1:
-#             if k>0:
-#                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
-#                 f = evaluate_latest_model(xPF[:,a[t,:-1],t-1],u[:,t-1])
-#                 xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,PFweightNum-1)
-#                 f = evaluate_latest_model(xPF[:,:,t-1],u[:,t-1])
-#                 waN = PFweight[t-1,:]*mvnpdf(f.T,xPF[:,-1,t-1],Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
-#                 waN /= np.sum(waN)
-#                 a[t,-1] = systematic_resampling(waN,1)
-#             else:
-#                 a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
-#                 f = evaluate_latest_model(xPF[:,a[t,:-1],t-1],u[:,t-1])
-#                 xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,PFweightNum-1)
+@njitParallel
+def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L,u,y,R):
+    N = a.shape[1]
+    Qchol = np.linalg.cholesky(Q)
+    # for t in trange(timeStep,desc='SMC - {} th'.format(k+1)):
+    for t in range(timeStep):
+        if t>=1:
+            if k>0:
+                a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
+                f = evaluate_latest_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1]) 
+                xPF[:,:-1,t] = f + Qchol@np.random.randn(nx,PFweightNum-1)
+                f = evaluate_latest_model(iA,iB,A,index,L,xPF[:,:,t-1],u[:,t-1])
+                waN = PFweight[t-1,:]*mvnpdf(f.T,xPF[:,-1,t-1],Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
+                waN /= np.sum(waN)
+                a[t,:] = systematic_resampling(waN,1)
+            else:
+                a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
+                f = evaluate_latest_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1])
+                xPF[:,:-1,t] = f + Qchol@np.random.randn(nx,PFweightNum-1)
 
 
-#         log_w = -0.5*(self.observe(t)-self.y[:,t])**2/self.R
-#         PFweight[t,:] = np.exp(log_w-np.max(log_w))
-#         PFweight[t,:] /= np.sum(PFweight[t,:])
+        log_w = -0.5*(xPF[-1,:,t]-y[:,t])**2/R
+        PFweight[t,:] = np.exp(log_w-np.max(log_w))
+        PFweight[t,:] /= np.sum(PFweight[t,:])

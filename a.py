@@ -200,28 +200,30 @@ class Simulate:
 
 
     def __runParticleFilter(self,k):
-        
-        Qchol = np.linalg.cholesky(self.__Q)
-        # for t in trange(self.__timeStep,desc='SMC - {} th'.format(k+1)):
-        for t in range(self.__timeStep):
-            if t>=1:
-                if k>0:
-                    self.__a[t,:-1] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum-1)
-                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
-                    self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
-                    f = self.__evaluate_latest_model(self.__xPF[:,:,t-1],self.__u[:,t-1])
-                    waN = self.__PFweight[t-1,:]*util.mvnpdf(f.T,self.__xPF[:,-1,t-1],self.__Q)#mvn.pdf(f.T,self.__xPF[:,-1,t-1],self.__Q)
-                    waN /= np.sum(waN)
-                    self.__a[t,-1] = util.systematic_resampling(waN,1)
-                else:
-                    self.__a[t,:] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum)
-                    f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
-                    self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
+        util.runParticleFilter(self.__Q,self.__timeStep,k,self.__a,self.__PFweight,self.__PFweightNum,
+                        self.__iA,self.__iB,self.__A,self.__index,self.__xPF,self.nx,self.__L,self.__u,
+                        self.y,self.R)
+        # Qchol = np.linalg.cholesky(self.__Q)
+        # # for t in trange(self.__timeStep,desc='SMC - {} th'.format(k+1)):
+        # for t in range(self.__timeStep):
+        #     if t>=1:
+        #         if k>0:
+        #             self.__a[t,:-1] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum-1)
+        #             f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
+        #             self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
+        #             f = self.__evaluate_latest_model(self.__xPF[:,:,t-1],self.__u[:,t-1])
+        #             waN = self.__PFweight[t-1,:]*util.mvnpdf(f.T,self.__xPF[:,-1,t-1],self.__Q)#mvn.pdf(f.T,self.__xPF[:,-1,t-1],self.__Q)
+        #             waN /= np.sum(waN)
+        #             self.__a[t,-1] = util.systematic_resampling(waN,1)
+        #         else:
+        #             self.__a[t,:] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum)
+        #             f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
+        #             self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
 
 
-            log_w = -0.5*(self.observe(t)-self.y[:,t])**2/self.R
-            self.__PFweight[t,:] = np.exp(log_w-np.max(log_w))
-            self.__PFweight[t,:] /= np.sum(self.__PFweight[t,:])
+        #     log_w = -0.5*(self.observe(t)-self.y[:,t])**2/self.R
+        #     self.__PFweight[t,:] = np.exp(log_w-np.max(log_w))
+        #     self.__PFweight[t,:] /= np.sum(self.__PFweight[t,:])
 
     def __update_statistics(self):
         Phi,Psi,Sig = util.compute_Phi_Psi_Sig(self.__iA,self.__iB,self.__x_prim,self.__index,self.__L,self.__u)
