@@ -5,11 +5,12 @@ import numpy as np
 import numba as nb
 from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
-
-jitSerial = nb.jit(fparallel=False,astmath=True)
-jitParallel = nb.jit(parallel=True,fastmath=True)
-njitParallel = nb.njit(parallel=True,fastmath=True)
-njitSerial = nb.njit(parallel=False,fastmath=True)
+PARALLEL = False
+FASTMATH = True
+jitSerial = nb.jit(parallel=False,astmath=FASTMATH)
+jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH)
+njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH)
+njitSerial = nb.njit(parallel=False,fastmath=FASTMATH)
 
 
 '''

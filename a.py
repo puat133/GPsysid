@@ -83,7 +83,7 @@ class Simulate:
         self.__dynamic = dynamic
         self.__steps = steps
         self.__nbases = nbases #assumed to be equal to all x and u
-        self.__A = np.zeros((self.nx,self.nbases**(self.nx+self.nu)))
+        self.__A = np.zeros((self.nx,self.nbases**(self.nx+self.nu)),dtype=np.float64,order='C')
         self.__Q = np.eye(dynamic.nx)
         self.__models = List()
         self.__models.append((self.__A,self.__Q))
@@ -91,15 +91,15 @@ class Simulate:
         self.__L = L
         self.__timeStep = timeStep
         self.__PFweightNum = PFweightNum
-        self.__PFweight = np.zeros((self.__timeStep,self.__PFweightNum))
+        self.__PFweight = np.zeros((self.__timeStep,self.__PFweightNum),dtype=np.float64,order='C')
         self.__a = np.zeros((self.__timeStep,self.__PFweightNum),dtype=np.int64)  #I dont know what a is
-        self.__xPF = np.zeros((self.__dynamic.nx,self.__PFweightNum,self.__timeStep))
-        self.__x_prim = np.zeros((self.nx,self.__timeStep))
+        self.__xPF = np.zeros((self.__dynamic.nx,self.__PFweightNum,self.__timeStep),dtype=np.float64,order='C')
+        self.__x_prim = np.zeros((self.nx,self.__timeStep),dtype=np.float64,order='C')
         self.__u = u
         self.__y = y
         self.__R = R
-        self.__iA = np.zeros((self.nx,self.nx))
-        self.__iB = np.zeros((self.nx,self.nu))
+        self.__iA = np.zeros((self.nx,self.nx),dtype=np.float64,order='C')
+        self.__iB = np.zeros((self.nx,self.nu),dtype=np.float64,order='C')
         self.__I = np.eye(self.nbases**(self.nx+self.nu))
         self.__LambdaQ = np.eye(self.nx)
         self.__lQ = 100
@@ -122,6 +122,10 @@ class Simulate:
     @property
     def xPF(self):
         return self.__xPF
+
+    @property
+    def x_prim(self):
+        return self.__x_prim
 
     @property
     def A(self):
