@@ -5,6 +5,7 @@ import numpy as np
 import numba as nb
 from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
+_LOG_2PI = np.log(2 * np.pi)
 PARALLEL = False
 FASTMATH = True
 jitSerial = nb.jit(parallel=False,astmath=FASTMATH)
@@ -30,6 +31,7 @@ def systematic_resampling(W,N):
         u += 1/N
 
     return idx-1
+
 
 
 #based on eq. 12 and 13 of "A flexible state–space model for learning nonlinear
@@ -99,7 +101,7 @@ def power_kron(x,n):
 def eigen(index,L):
     lmb = np.zeros(index.shape[1])
     for i in nb.prange(index.shape[1]+1):#This start from one
-        lmb[i] =  np.sum((0.5*np.pi*index[:,i]/L)**2)     
+        lmb[i] =  np.sum(np.square((0.5*np.pi*index[:,i]/L)))     
 
     return lmb
 
@@ -116,7 +118,7 @@ def create_index(m,nbases):
 # V = 1000*diag(prod(S_SE(sqrt(lambda),1),2));
 @njitSerial
 def spectrumRadial(eig,sf=1.,ell=1.):
-    return sf*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(ell*ell*eig*eig))
+    return sf*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(ell*ell*np.square(eig)))
 
 
 @njitSerial
@@ -139,13 +141,40 @@ def compute_Phi_Psi_Sig(iA,iB,x_prim,index,L,u):
     return Phi,Psi,Sig
 
 
+@njitSerial 
+def _logpdf(x, mean, Sigma):
+    k = x.shape[-1]
+    z = x - mean
+    C = np.linalg.cholesky(Sigma)
+    log_det_cov = 2*np.sum(np.log(np.diag(C)))
+    maha = np.sum(np.square(np.linalg.solve(C.T,z.T)), axis=0)
+    return -0.5 * (k * _LOG_2PI + log_det_cov + maha)
 
-        
+@njitSerial
+def mvnpdf(x,mean,Sigma): 
+    return np.exp(_logpdf(x,mean,Sigma))
 
 
+# def runParticleFilter(self,k):
+    
+#     Qchol = np.linalg.cholesky(Q)
+#     # for t in trange(timeStep,desc='SMC - {} th'.format(k+1)):
+#     for t in range(timeStep):
+#         if t>=1:
+#             if k>0:
+#                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
+#                 f = evaluate_latest_model(xPF[:,a[t,:-1],t-1],u[:,t-1])
+#                 xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,PFweightNum-1)
+#                 f = evaluate_latest_model(xPF[:,:,t-1],u[:,t-1])
+#                 waN = PFweight[t-1,:]*mvnpdf(f.T,xPF[:,-1,t-1],Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
+#                 waN /= np.sum(waN)
+#                 a[t,-1] = systematic_resampling(waN,1)
+#             else:
+#                 a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
+#                 f = evaluate_latest_model(xPF[:,a[t,:-1],t-1],u[:,t-1])
+#                 xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,PFweightNum-1)
 
 
-
-#Not implemented yet
-# @njitSerial
-# def spectrumMatern(eig,sf=1.,nu=1.5,ell=1.)
+#         log_w = -0.5*(self.observe(t)-self.y[:,t])**2/self.R
+#         PFweight[t,:] = np.exp(log_w-np.max(log_w))
+#         PFweight[t,:] /= np.sum(PFweight[t,:])

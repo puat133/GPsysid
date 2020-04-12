@@ -210,7 +210,7 @@ class Simulate:
                     f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
                     self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
                     f = self.__evaluate_latest_model(self.__xPF[:,:,t-1],self.__u[:,t-1])
-                    waN = self.__PFweight[t-1,:]*mvn.pdf(f.T,self.__xPF[:,-1,t-1],self.__Q)
+                    waN = self.__PFweight[t-1,:]*util.mvnpdf(f.T,self.__xPF[:,-1,t-1],self.__Q)#mvn.pdf(f.T,self.__xPF[:,-1,t-1],self.__Q)
                     waN /= np.sum(waN)
                     self.__a[t,-1] = util.systematic_resampling(waN,1)
                 else:
