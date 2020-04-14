@@ -6,12 +6,13 @@ import numba as nb
 from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
 _LOG_2PI = np.log(2 * np.pi)
+CACHE = True
 PARALLEL = False
 FASTMATH = True
-jitSerial = nb.jit(parallel=False,fastmath=FASTMATH)
-jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH)
-njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH)
-njitSerial = nb.njit(parallel=False,fastmath=FASTMATH)
+jitSerial = nb.jit(parallel=False,fastmath=FASTMATH,cache=CACHE)
+jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
+njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
+njitSerial = nb.njit(parallel=False,fastmath=FASTMATH,cache=CACHE)
 
 
 '''
@@ -58,7 +59,7 @@ def gibbParamPost(Phi,vdiag,Psibar,SigbarInv,Q):
 
 
 #V is assumed to be diagonal
-# @jitSerial
+@jitSerial
 def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
     cov_M_sym,Psibar,SigbarInv = gibbParamPre(Phi, Psi, Sigma, vdiag, Lambda,I)
     Q = invwishart.rvs(T+l,cov_M_sym)
@@ -80,6 +81,16 @@ def basis(index,L,x):
         temp = onedim_basis(index[:,i],L,x)
         for j in nb.prange(temp.shape[1]):
             basis[i,:] *= temp[:,j]
+    return basis
+
+@njitParallel
+def basis1D(index,L,x):
+    basis = np.ones((index.shape[1]),dtype=np.float64)
+    for i in nb.prange(index.shape[1]):
+        basis[i] = np.prod(onedim_basis(index[:,i],L,x))
+        # temp = onedim_basis(index[:,i],L,x)
+        # for j in nb.prange(temp.shape[1]):
+            # basis[i] *= temp[j]
     return basis
 
     
@@ -122,10 +133,15 @@ def spectrumRadial(eig,sf=1.,ell=1.):
 
 
 @njitSerial
-def evaluate_latest_model(iA,iB,A,index,L,x,u):
+def evaluate_model(iA,iB,A,index,L,x,u):
     uExpand = u*np.ones((1,x.shape[1]))
     xAug = np.vstack((x,uExpand))
     return iA@x + iB@uExpand+ A@basis(index,L,xAug)
+
+@njitSerial
+def evaluate_model_thin(iA,iB,A,index,L,x,u):
+    xAug = np.concatenate((x,u))
+    return iA@x + iB@u+ A@(basis1D(index,L,xAug))
 
 @njitSerial
 def compute_Phi_Psi_Sig(iA,iB,x_prim,index,L,u):
@@ -164,15 +180,15 @@ def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L
         if t>=1:
             if k>0:
                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
-                f = evaluate_latest_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1]) 
+                f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1]) 
                 xPF[:,:-1,t] = f + Qchol@np.random.randn(nx,PFweightNum-1)
-                f = evaluate_latest_model(iA,iB,A,index,L,xPF[:,:,t-1],u[:,t-1])
+                f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1],u[:,t-1])
                 waN = PFweight[t-1,:]*mvnpdf(f.T,xPF[:,-1,t-1],Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
                 waN /= np.sum(waN)
                 a[t,:] = systematic_resampling(waN,1)
             else:
                 a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
-                f = evaluate_latest_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1])
+                f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1])
                 xPF[:,:-1,t] = f + Qchol@np.random.randn(nx,PFweightNum-1)
 
 

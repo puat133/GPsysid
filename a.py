@@ -106,6 +106,8 @@ class Simulate:
         self.__lambda = util.eigen(self.__index,self.__L)
         self.__ell = 1.
         self.__V = 1000*util.spectrumRadial(np.sqrt(self.__lambda),self.__ell)
+        self.__burnInPercentage = 1
+        
         
     
     def addmodel(self,newA,newQ):
@@ -195,8 +197,8 @@ class Simulate:
     def iB(self,new_iB):
         self.__iB = new_iB
 
-    def __evaluate_latest_model(self,x,u):
-        return util.evaluate_latest_model(self.__iA,self.__iB,self.__A,self.__index,self.__L,x,u)
+    # def __evaluate_latest_model(self,x,u):
+    #     return util.evaluate_latest_model(self.__iA,self.__iB,self.__A,self.__index,self.__L,x,u)
 
 
     def __runParticleFilter(self,k):
@@ -249,6 +251,44 @@ class Simulate:
             # print('Sampling. k = {}/{}'.format(k,self.__steps))
 
             self.__update_statistics()
+
+    def evaluate(self,yTest,uTest,Kn=1):
+        ny = yTest.shape[0]
+        burn_in = (self.__burnInPercentage*self.__steps)//100
+        remain_step = self.__steps - burn_in
+        eval_timeSteps = yTest.shape[1]
+        x_test_sim = np.zeros((self.nx,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
+        # if yTest.ndim > 1:
+        y_test_sim = np.zeros((ny,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
+        # else:
+            # y_test_sim = np.zeros((eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
+        if isinstance(self.__R,np.ndarray):
+            if self.__R.ndim ==2:
+                Rchol = np.linalg.cholesky(self.__R)
+        else:
+            Rchol = np.sqrt(self.__R)
+        
+        if uTest.ndim == 1:
+            uTest = uTest[np.newaxis,:]
+        for k in trange(remain_step,desc='Evaluation'):
+            self.__A,self.__Q = self.__models[k+burn_in]
+            Qchol = np.linalg.cholesky(self.__Q)
+            
+            for kn in range(Kn):
+                ki = k*Kn+ kn
+                for t in range(eval_timeSteps-1):
+                    x_test_sim[:,t+1,ki] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,x_test_sim[:,t,ki],uTest[:,t])+Qchol@np.random.randn(self.nx)
+                    y_test_sim[:,t,ki] = x_test_sim[-1,t,ki] + Rchol*np.random.randn()#Rchol@np.random.randn(self.ny)
+
+
+        y_test_med = np.median(y_test_sim,axis=2)
+        y_test_loQ = np.quantile(y_test_sim,0.025,axis=2)
+        y_test_hiQ = np.quantile(y_test_sim,0.975,axis=2)
+        return y_test_med,y_test_loQ,y_test_hiQ
+
+
+
+        
 
 
 
