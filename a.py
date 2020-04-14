@@ -118,6 +118,10 @@ class Simulate:
         return self.__xPF[-1,:,t]
 
     @property
+    def burnInPercentage(self):
+        return self.__burnInPercentage
+
+    @property
     def a(self):
         return self.__a
 
@@ -196,6 +200,10 @@ class Simulate:
     @iB.setter
     def iB(self,new_iB):
         self.__iB = new_iB
+
+    @burnInPercentage.setter
+    def burnInPercentage(self,value):
+        self.__burnInPercentage = value
 
     # def __evaluate_latest_model(self,x,u):
     #     return util.evaluate_latest_model(self.__iA,self.__iB,self.__A,self.__index,self.__L,x,u)
