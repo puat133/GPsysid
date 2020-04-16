@@ -79,34 +79,48 @@ NB_TYPE_DYNAMIC = nb.deferred_type()
 NB_TYPE_DYNAMIC.define(Dynamic.class_type.instance_type)
 
 class Simulate:
-    def __init__(self,steps,dynamic,u,y,nbases,L,R=0.1,timeStep=2000,PFweightNum=30):
-        self.__dynamic = dynamic
-        self.__steps = steps
-        self.__nbases = nbases #assumed to be equal to all x and u
-        self.__A = np.zeros((self.nx,self.nbases**(self.nx+self.nu)),dtype=np.float64,order='C')
-        self.__Q = np.eye(dynamic.nx)
-        self.__models = List()
-        self.__models.append((self.__A,self.__Q))
-        self.__index = util.create_index(self.nx+self.nu,self.nbases)
-        self.__L = L
-        self.__timeStep = timeStep
-        self.__PFweightNum = PFweightNum
-        self.__PFweight = np.zeros((self.__timeStep,self.__PFweightNum),dtype=np.float64,order='C')
-        self.__a = np.zeros((self.__timeStep,self.__PFweightNum),dtype=np.int64)  #I dont know what a is
-        self.__xPF = np.zeros((self.__dynamic.nx,self.__PFweightNum,self.__timeStep),dtype=np.float64,order='C')
-        self.__x_prim = np.zeros((self.nx,self.__timeStep),dtype=np.float64,order='C')
+    def __init__(self,steps,nx,u,y,nbases,L,R=0.1,PFweightNum=30):
+        
+        
+        # self.__dynamic = dynamic
         self.__u = u
         self.__y = y
+        self.__nu = self.__u.shape[0]
+        self.__ny = self.__y.shape[0]
+        self.__nx = nx
+        self.__steps = steps
+        self.__nbases = nbases #assumed to be equal to all x and u
+        self.__A = np.zeros((self.__nx,self.nbases**(self.__nx+self.__nu)),dtype=np.float64,order='C')
+        self.__Q = np.eye(self.__nx)
+        self.__models = List()
+        self.__models.append((self.__A,self.__Q))
+        self.__index = util.create_index(self.__nx+self.__nu,self.nbases)
+        self.__L = L
+        self.__timeStep = self.__y.shape[1]
+        self.__PFweightNum = PFweightNum
+        
+        #DefaultZero
+        self.__PFweightZero = np.zeros((self.__timeStep,self.__PFweightNum),dtype=np.float64,order='C')
+        self.__aZero = np.zeros((self.__timeStep,self.__PFweightNum),dtype=np.int64)  #I dont know what a is
+        self.__xPFZero = np.zeros((self.__PFweightNum,self.__nx,self.__timeStep),dtype=np.float64,order='C')
+        
+        
+        self.__PFweight =  self.__PFweightZero
+        self.__a = self.__aZero
+        self.__xPF = self.__xPFZero
+        self.__x_prim = np.zeros((self.__nx,self.__timeStep),dtype=np.float64,order='C')
+        
         self.__R = R
-        self.__iA = np.zeros((self.nx,self.nx),dtype=np.float64,order='C')
-        self.__iB = np.zeros((self.nx,self.nu),dtype=np.float64,order='C')
-        self.__I = np.eye(self.nbases**(self.nx+self.nu))
-        self.__LambdaQ = np.eye(self.nx)
+        self.__iA = np.zeros((self.__nx,self.__nx),dtype=np.float64,order='C')
+        self.__iB = np.zeros((self.__nx,self.__nu),dtype=np.float64,order='C')
+        self.__I = np.eye(self.nbases**(self.__nx+self.__nu))
+        self.__LambdaQ = np.eye(self.__nx)
         self.__lQ = 100
         self.__lambda = util.eigen(self.__index,self.__L)
         self.__ell = 1.
-        self.__V = 1000*util.spectrumRadial(np.sqrt(self.__lambda),self.__ell)
+        self.__V = 2*np.pi*1000*util.spectrumRadial(np.sqrt(self.__lambda),self.__ell)
         self.__burnInPercentage = 1
+        
         
         
     
@@ -117,9 +131,22 @@ class Simulate:
     def observe(self,t):
         return self.__xPF[-1,:,t]
 
+    def setToZero(self):
+        self.__PFweight = self.__PFweightZero.copy()
+        self.__a = self.__aZero.copy()
+        self.__xPF = self.__xPFZero.copy()
+        
     @property
     def burnInPercentage(self):
         return self.__burnInPercentage
+
+    @property
+    def PFweight(self):
+        return self.__PFweight
+
+    @property
+    def V(self):
+        return self.__V
 
     @property
     def a(self):
@@ -155,15 +182,15 @@ class Simulate:
 
     @property
     def nx(self):
-        return self.__dynamic.nx
+        return self.__nx
 
     @property
     def nu(self):
-        return self.__dynamic.nu
+        return self.__nu
 
     @property
     def ny(self):
-        return self.__dynamic.ny
+        return self.__ny
 
     @property
     def nbases(self):
@@ -210,8 +237,8 @@ class Simulate:
 
 
     def __runParticleFilter(self,k):
-        util.runParticleFilter(self.__Q,self.__timeStep,k,self.__a,self.__PFweight,self.__PFweightNum,
-                        self.__iA,self.__iB,self.__A,self.__index,self.__xPF,self.nx,self.__L,self.__u,
+        self.__a,self.__PFweight,self.__xPF = util.runParticleFilter(self.__Q,self.__timeStep,k,self.__a,self.__PFweight,self.__PFweightNum,  
+                        self.__iA,self.__iB,self.__A,self.__index,self.__xPF,self.__nx,self.__L,self.__u,
                         self.y,self.R)
         # Qchol = np.linalg.cholesky(self.__Q)
         # # for t in trange(self.__timeStep,desc='SMC - {} th'.format(k+1)):
@@ -220,7 +247,7 @@ class Simulate:
         #         if k>0:
         #             self.__a[t,:-1] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum-1)
         #             f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
-        #             self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
+        #             self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.__nx,self.__PFweightNum-1)
         #             f = self.__evaluate_latest_model(self.__xPF[:,:,t-1],self.__u[:,t-1])
         #             waN = self.__PFweight[t-1,:]*util.mvnpdf(f.T,self.__xPF[:,-1,t-1],self.__Q)#mvn.pdf(f.T,self.__xPF[:,-1,t-1],self.__Q)
         #             waN /= np.sum(waN)
@@ -228,7 +255,7 @@ class Simulate:
         #         else:
         #             self.__a[t,:] = util.systematic_resampling(self.__PFweight[t-1,:],self.__PFweightNum)
         #             f = self.__evaluate_latest_model(self.__xPF[:,self.__a[t,:-1],t-1],self.__u[:,t-1])
-        #             self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.nx,self.__PFweightNum-1)
+        #             self.__xPF[:,:-1,t] = f + Qchol@np.random.randn(self.__nx,self.__PFweightNum-1)
 
 
         #     log_w = -0.5*(self.observe(t)-self.y[:,t])**2/self.R
@@ -245,16 +272,28 @@ class Simulate:
     def run(self):
         
         for k in trange(self.__steps,desc='Simulation'):
+            #This probabiy not required
+            self.setToZero()
+            
+            #Initialization
+            if k>0:
+                self.__xPF[-1,:,:] = self.__x_prim
+            
+            self.__PFweight[0,:] = 1.
+            self.__PFweight[0,:] /= np.sum(self.__PFweight[0,:])
+            
+            # CPF with ancestor sampling
+            self.__xPF[:-1,:,0] = 0
+
+
             self.__runParticleFilter(k)
-
-
             star = util.systematic_resampling(self.__PFweight[-1,:],1)
-            self.__x_prim[:,-1] = self.__xPF[:,star,-1].flatten()
+            self.__x_prim[:,-1] = self.__xPF[star,:,-1].flatten()
 
             #loop from the back
-            for t in np.flip(np.arange(self.__timeStep)):
+            for t in np.flip(np.arange(1,self.__timeStep)):
                 star = self.__a[t,star]
-                self.__x_prim[:,t-1] = self.__xPF[:,star,t-1].flatten()
+                self.__x_prim[:,t-1] = self.__xPF[star,:,t-1].flatten()
 
             # print('Sampling. k = {}/{}'.format(k,self.__steps))
 
@@ -265,7 +304,7 @@ class Simulate:
         burn_in = (self.__burnInPercentage*self.__steps)//100
         remain_step = self.__steps - burn_in
         eval_timeSteps = yTest.shape[1]
-        x_test_sim = np.zeros((self.nx,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
+        x_test_sim = np.zeros((self.__nx,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
         # if yTest.ndim > 1:
         y_test_sim = np.zeros((ny,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
         # else:
@@ -285,7 +324,7 @@ class Simulate:
             for kn in range(Kn):
                 ki = k*Kn+ kn
                 for t in range(eval_timeSteps-1):
-                    x_test_sim[:,t+1,ki] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,x_test_sim[:,t,ki],uTest[:,t])+Qchol@np.random.randn(self.nx)
+                    x_test_sim[:,t+1,ki] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,x_test_sim[:,t,ki],uTest[:,t])+Qchol@np.random.randn(self.__nx)
                     y_test_sim[:,t,ki] = x_test_sim[-1,t,ki] + Rchol*np.random.randn()#Rchol@np.random.randn(self.ny)
 
 

@@ -16,6 +16,7 @@ njitSerial = nb.njit(parallel=False,fastmath=FASTMATH,cache=CACHE)
 
 
 '''
+OK
 '''
 @njitSerial
 def systematic_resampling(W,N):
@@ -28,13 +29,15 @@ def systematic_resampling(W,N):
         while q<u:
             q += W[n]
             n +=1
-        idx[i] = n#python start from 0
+        idx[i] = n
         u += 1/N
 
-    return idx-1
+    return idx-1#python start from 0
 
 
-
+'''
+Note: Matlab cholesky is transpose of numpy cholesky
+'''
 #based on eq. 12 and 13 of "A flexible state–space model for learning nonlinear
 # dynamical systems"  http://dx.doi.org/10.1016/j.automatica.2017.02.030
 @njitSerial
@@ -49,17 +52,19 @@ def gibbParamPre(Phi, Psi, Sigma, vdiag, Lambda,I):
     cov_M_sym = 0.5*(cov_M+cov_M.T)
     return cov_M_sym,Psibar,SigbarInv
 
-
+'''
+Note: Matlab cholesky is transpose of numpy cholesky
+'''
 @njitSerial
 def gibbParamPost(Phi,vdiag,Psibar,SigbarInv,Q):
     X = np.random.randn(Phi.shape[0],vdiag.shape[0])
     post_mean = Psibar@SigbarInv
-    A =post_mean + np.linalg.cholesky(Q)@X@np.linalg.cholesky(SigbarInv)    
+    A =post_mean + np.linalg.cholesky(Q).T@X@np.linalg.cholesky(SigbarInv).T
     return A
 
 
 #V is assumed to be diagonal
-@jitSerial
+#@jitSerial
 def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
     cov_M_sym,Psibar,SigbarInv = gibbParamPre(Phi, Psi, Sigma, vdiag, Lambda,I)
     Q = invwishart.rvs(T+l,cov_M_sym)
@@ -111,9 +116,8 @@ def power_kron(x,n):
 @njitSerial
 def eigen(index,L):
     lmb = np.zeros(index.shape[1])
-    for i in nb.prange(index.shape[1]+1):#This start from one
-        lmb[i] =  np.sum(np.square((0.5*np.pi*index[:,i]/L)))     
-
+    for i in nb.prange(index.shape[1]):
+        lmb[i] =  np.sum(np.square((0.5*np.pi*index[:,i]/L)))    
     return lmb
 
 @njitSerial
@@ -128,8 +132,8 @@ def create_index(m,nbases):
 # S_SE = @(w,ell) sqrt(2*pi.*ell.^2).*exp(-(w.^2./2).*ell.^2);
 # V = 1000*diag(prod(S_SE(sqrt(lambda),1),2));
 @njitSerial
-def spectrumRadial(eig,sf=1.,ell=1.):
-    return sf*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(ell*ell*np.square(eig)))
+def spectrumRadial(s,sf=1.,ell=1.):
+    return sf*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(ell*ell*np.square(s)))
 
 
 @njitSerial
@@ -159,39 +163,47 @@ def compute_Phi_Psi_Sig(iA,iB,x_prim,index,L,u):
 
 @njitSerial 
 def _logpdf(x, mean, Sigma):
-    k = x.shape[-1]
+    k = x.shape[0]
     z = x - mean
     C = np.linalg.cholesky(Sigma)
     log_det_cov = 2*np.sum(np.log(np.diag(C)))
-    maha = np.sum(np.square(np.linalg.solve(C.T,z.T)), axis=0)
+    maha = np.sum(np.square(np.linalg.solve(C.T,z)), axis=0)
     return -0.5 * (k * _LOG_2PI + log_det_cov + maha)
 
 @njitSerial
 def mvnpdf(x,mean,Sigma): 
     return np.exp(_logpdf(x,mean,Sigma))
 
-
-@njitParallel
+'''
+Note: Matlab cholesky is transpose of numpy cholesky
+'''
+# @njitParallel
 def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L,u,y,R):
-    N = a.shape[1]
-    Qchol = np.linalg.cholesky(Q)
+    # N = a.shape[1]
+    Qchol = np.linalg.cholesky(Q).T
     # for t in trange(timeStep,desc='SMC - {} th'.format(k+1)):
-    for t in range(timeStep):
+    for t in nb.prange(timeStep):
         if t>=1:
             if k>0:
                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
-                f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1]) 
-                xPF[:,:-1,t] = f + Qchol@np.random.randn(nx,PFweightNum-1)
-                f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1],u[:,t-1])
-                waN = PFweight[t-1,:]*mvnpdf(f.T,xPF[:,-1,t-1],Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
+                # f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1]) 
+                f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:-1],:,t-1].T,u[:,t-1]) 
+                xPF[:-1,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum-1)).T
+                # f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1],u[:,t-1])
+                f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1].T,u[:,t-1])
+                waN = PFweight[t-1,:]*mvnpdf(f,xPF[-1,:,t][np.newaxis].T,Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
                 waN /= np.sum(waN)
-                a[t,:] = systematic_resampling(waN,1)
+                a[t,-1] = systematic_resampling(waN,1)
             else:
                 a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
-                f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1])
-                xPF[:,:-1,t] = f + Qchol@np.random.randn(nx,PFweightNum-1)
+                # f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:],t-1],u[:,t-1])
+                f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:],:,t-1].T,u[:,t-1])
+                xPF[:,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum)).T
 
 
-        log_w = -0.5*(xPF[-1,:,t]-y[:,t])**2/R
+        # log_w = -0.5*np.square(xPF[-1,:,t]-y[:,t])/R
+        log_w = -0.5*np.square(xPF[:,-1,t]-y[:,t])/R
         PFweight[t,:] = np.exp(log_w-np.max(log_w))
         PFweight[t,:] /= np.sum(PFweight[t,:])
+
+    return a,PFweight,xPF
