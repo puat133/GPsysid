@@ -5,6 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import importlib
+sns.set_style('darkgrid')
+from matplotlib import rc
+# rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
+## for Palatino and other serif fonts use:
+# rc('font',**{'family':'serif','serif':['Palatino']})
+# rc('text', usetex=True)
+#%%
+def linearFunction(iA,iB,x,u):
+    return iA@x+iB@u
 #%%
 R = 0.1
 stdev = np.sqrt(R)
@@ -32,7 +41,7 @@ iA = np.zeros((2,2))
 iB = np.zeros((2,1))
 #%%
 test_dynamic = a.Dynamic(a.TEST_F,a.TEST_G,nx,nu,ny)
-sim = a.Simulate(100,nx,u,y,nbases,L,PFweightNum=30)
+sim = a.Simulate(500,nx,u,y,nbases,L,PFweightNum=30)
 sim.iA = iA#np.zeros((2,2)) 
 sim.iB = iB#np.zeros((2,1))
 sim.burnInPercentage = 25
@@ -41,7 +50,7 @@ sim.burnInPercentage = 25
 # %%
 sim.run()
 
-# # %%
+# %%
 T_test = T//4
 t = np.arange(T_test)
 u_test = np.sin(2*np.pi*t/10)+np.sin(2*np.pi*t/25)
@@ -54,15 +63,15 @@ for i in range(T_test):
     y_test[:,i] = a.TEST_G(xt) #+ stdev*np.random.randn()
     y_lin[:,i] = a.TEST_G(xtlin) #+ stdev*np.random.randn()
     xt = a.TEST_F(xt,u_test[:,i])
-    xtlin = a.TEST_F(xt,u_test[:,i])
+    xtlin = linearFunction(iA,iB,xtlin,u_test[:,i])
 #%%
 y_test_med,y_test_loQ,y_test_hiQ = sim.evaluate(y_test,u_test,Kn=10)
 #%%
-fig = plt.figure(figsize=(40,10))
-plt.plot(t,y_test.T,color='k',linewidth=1,label='Ground Truth')
-plt.plot(t,y_test_med.flatten(),color='b',linewidth=0.5,label='Median')
-plt.plot(t,y_lin.flatten(),color='r',linewidth=0.5,label='Median')
-plt.fill_between(t,y_test_loQ.flatten(),y_test_hiQ.flatten(), color='b', alpha=.1, label=r'95 \% confidence')
+fig = plt.figure(figsize=(20,10))
+plt.plot(t,y_test.T,linewidth=1,label='Ground Truth')
+plt.plot(t,y_test_med.flatten(),linewidth=0.5,label='Median')
+plt.plot(t,y_lin.flatten(),linewidth=0.5,label='Linear')
+plt.fill_between(t,y_test_loQ.flatten(),y_test_hiQ.flatten(), alpha=.1, label=r'95 \% confidence')
 plt.legend()
 plt.show()
 

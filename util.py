@@ -186,22 +186,18 @@ def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L
         if t>=1:
             if k>0:
                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
-                # f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:-1],t-1],u[:,t-1]) 
                 f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:-1],:,t-1].T,u[:,t-1]) 
                 xPF[:-1,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum-1)).T
-                # f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1],u[:,t-1])
                 f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1].T,u[:,t-1])
-                waN = PFweight[t-1,:]*mvnpdf(f,xPF[-1,:,t][np.newaxis].T,Q)#mvn.pdf(f.T,xPF[:,-1,t-1],Q)
+                waN = PFweight[t-1,:]*mvnpdf(f,xPF[-1,:,t][np.newaxis].T,Q)
                 waN /= np.sum(waN)
                 a[t,-1] = systematic_resampling(waN,1)
             else:
                 a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
-                # f = evaluate_model(iA,iB,A,index,L,xPF[:,a[t,:],t-1],u[:,t-1])
                 f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:],:,t-1].T,u[:,t-1])
                 xPF[:,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum)).T
 
 
-        # log_w = -0.5*np.square(xPF[-1,:,t]-y[:,t])/R
         log_w = -0.5*np.square(xPF[:,-1,t]-y[:,t])/R
         PFweight[t,:] = np.exp(log_w-np.max(log_w))
         PFweight[t,:] /= np.sum(PFweight[t,:])
