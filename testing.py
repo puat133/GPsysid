@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import importlib
-sns.set_style('darkgrid')
+sns.set_style('white ticks')
 from matplotlib import rc
 # rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 ## for Palatino and other serif fonts use:
@@ -68,11 +68,15 @@ for i in range(T_test):
 y_test_med,y_test_loQ,y_test_hiQ = sim.evaluate(y_test,u_test,Kn=10)
 #%%
 fig = plt.figure(figsize=(20,10))
-plt.plot(t,y_test.T,linewidth=1,label='Ground Truth')
-plt.plot(t,y_test_med.flatten(),linewidth=0.5,label='Median')
-plt.plot(t,y_lin.flatten(),linewidth=0.5,label='Linear')
+plt.plot(t,y_test.T,linewidth=2,label='Ground Truth')
+plt.plot(t,y_test_med.flatten(),linewidth=2,label='Median')
+plt.plot(t,y_lin.flatten(),linewidth=2,label='Linear')
 plt.fill_between(t,y_test_loQ.flatten(),y_test_hiQ.flatten(), alpha=.1, label=r'95 \% confidence')
+plt.xlabel('t')
+plt.ylabel('y')
 plt.legend()
+plt.tight_layout()
+plt.savefig('TestDynamic_woL.png')
 plt.show()
 
 
