@@ -118,7 +118,8 @@ class Simulate:
         self.__lQ = 100
         self.__lambda = util.eigen(self.__index,self.__L)
         self.__ell = 1.
-        self.__V = 2*np.pi*1000*util.spectrumRadial(np.sqrt(self.__lambda),self.__ell)
+        self.__Vgain = 1000
+        self.__V = util.spectrumRadial(np.sqrt(self.__lambda),self.__Vgain,self.__ell)
         self.__burnInPercentage = 1
         
         
@@ -220,13 +221,44 @@ class Simulate:
     def iB(self):
         return self.__iB
 
+    @property
+    def ell(self):
+        return self.__ell
+
+    @property
+    def lQ(self):
+        return self.__lQ
+   
+
+    @property
+    def Vgain(self):
+        return self.__Vgain
+
+    @Vgain.setter
+    def Vgain(self,value):
+        self.__Vgain = value
+        self.__V = util.spectrumRadial(np.sqrt(self.__lambda),self.__Vgain,self.__ell)
+
+    @lQ.setter
+    def lQ(self,value):
+        self.__lQ = value
+
+    @ell.setter
+    def ell(self,value):
+        self.__ell = value
+        self.__V = util.spectrumRadial(np.sqrt(self.__lambda),self.__Vgain,self.__ell)
+
+    @R.setter
+    def R(self,value):
+        self.__R = value
+
     @iA.setter
-    def iA(self,new_iA):
-        self.__iA = new_iA
+    def iA(self,value):
+        self.__iA = value
 
     @iB.setter
-    def iB(self,new_iB):
-        self.__iB = new_iB
+    def iB(self,value):
+        self.__iB = value
 
     @burnInPercentage.setter
     def burnInPercentage(self,value):
@@ -239,7 +271,7 @@ class Simulate:
     def __runParticleFilter(self,k):
         self.__a,self.__PFweight,self.__xPF = util.runParticleFilter(self.__Q,self.__timeStep,k,self.__a,self.__PFweight,self.__PFweightNum,  
                         self.__iA,self.__iB,self.__A,self.__index,self.__xPF,self.__nx,self.__L,self.__u,
-                        self.y,self.R)
+                        self.y,self.__R)
         # Qchol = np.linalg.cholesky(self.__Q)
         # # for t in trange(self.__timeStep,desc='SMC - {} th'.format(k+1)):
         # for t in range(self.__timeStep):

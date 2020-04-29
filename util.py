@@ -140,9 +140,9 @@ def spectrumRadial(s,sf=1.,ell=1.):
 
 @njitSerial
 def evaluate_model(iA,iB,A,index,L,x,u):
-    uExpand = u*np.ones((1,x.shape[1]))
-    xAug = np.vstack((x,uExpand))
-    return iA@x + iB@uExpand+ A@basis(index,L,xAug)
+    # uExpand = np.repeat(u,x.shape[1],axis=1)#u*np.ones((u.shape[0],x.shape[1]))
+    xAug = np.vstack((x,u))
+    return iA@x + iB@u+ A@basis(index,L,xAug)
 
 @njitSerial
 def evaluate_model_thin(iA,iB,A,index,L,x,u):
@@ -186,17 +186,18 @@ def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L
     # for t in trange(timeStep,desc='SMC - {} th'.format(k+1)):
     for t in nb.prange(timeStep):
         if t>=1:
+            uTile = np.tile(u[:,t-1][:,np.newaxis],PFweightNum)
             if k>0:
                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
-                f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:-1],:,t-1].T,u[:,t-1]) 
+                f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:-1],:,t-1].T,uTile[:,:-1]) 
                 xPF[:-1,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum-1)).T
-                f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1].T,u[:,t-1])
+                f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1].T,uTile)
                 waN = PFweight[t-1,:]*mvnpdf(f,xPF[-1,:,t].reshape((-1,1)),Q)
                 waN /= np.sum(waN)
                 a[t,-1] = systematic_resampling(waN,1)
             else:
                 a[t,:] = systematic_resampling(PFweight[t-1,:],PFweightNum)
-                f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:],:,t-1].T,u[:,t-1])
+                f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:],:,t-1].T,uTile)
                 xPF[:,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum)).T
 
 

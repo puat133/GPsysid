@@ -26,30 +26,17 @@ xt = np.zeros(2)
 for i in range(T):
     y[:,i] = a.TEST_G(xt) + stdev*np.random.randn()
     xt = a.TEST_F(xt,u[:,i])
-
-
 #%%
 nx = 2
 nu = 1
 ny = 1
-nbases=7
+nbases=5 # default is 7
 L = 5.
 # iA = np.array([[0.0146,-0.1294],
 #                 [-0.5902,-0.2214]])
 # iB = np.array([[-0.1319],[0.7236]])
 iA = np.zeros((2,2))
 iB = np.zeros((2,1))
-#%%
-test_dynamic = a.Dynamic(a.TEST_F,a.TEST_G,nx,nu,ny)
-sim = a.Simulate(500,nx,u,y,nbases,L,PFweightNum=30)
-sim.iA = iA#np.zeros((2,2)) 
-sim.iB = iB#np.zeros((2,1))
-sim.burnInPercentage = 25
-# plt.plot(sim.V,linewidth=0.5)
-# plt.show()
-# %%
-sim.run()
-
 # %%
 T_test = T//4
 t = np.arange(T_test)
@@ -64,6 +51,22 @@ for i in range(T_test):
     y_lin[:,i] = a.TEST_G(xtlin) #+ stdev*np.random.randn()
     xt = a.TEST_F(xt,u_test[:,i])
     xtlin = linearFunction(iA,iB,xtlin,u_test[:,i])
+
+
+#%%
+test_dynamic = a.Dynamic(a.TEST_F,a.TEST_G,nx,nu,ny)
+steps = 50
+sim = a.Simulate(steps,nx,u,y,nbases,L,PFweightNum=30)
+sim.iA = iA#np.zeros((2,2)) 
+sim.iB = iB#np.zeros((2,1))
+sim.burnInPercentage = 25
+sim.lQ = 10 #for prior QR
+sim.ell = 1
+sim.Vgain = 1e3
+# plt.plot(sim.V,linewidth=0.5)
+# plt.show()
+# %%
+sim.run()
 #%%
 y_test_med,y_test_loQ,y_test_hiQ = sim.evaluate(y_test,u_test,Kn=10)
 #%%
