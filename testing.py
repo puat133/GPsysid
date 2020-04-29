@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import importlib
-sns.set_style('white ticks')
+# sns.set_style('white ticks')
 from matplotlib import rc
 # rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 ## for Palatino and other serif fonts use:

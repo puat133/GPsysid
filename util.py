@@ -5,6 +5,8 @@ import numpy as np
 import numba as nb
 from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
+import scipy.fftpack as FFT
+
 _LOG_2PI = np.log(2 * np.pi)
 CACHE = True
 PARALLEL = False
@@ -203,3 +205,30 @@ def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L
         PFweight[t,:] /= np.sum(PFweight[t,:])
 
     return a,PFweight,xPF
+
+
+
+
+
+
+
+'''
+compute cross corellation between two signals
+using FFT
+'''
+def xcorr(x,y):
+    n = x.shape[0]
+    lags = np.arange(-n//2,n//2)
+    xhat = FFT.fft(x)
+    yhat = FFT.fft(y)
+    c = xhat.conj()*yhat
+    res = FFT.ifft(c).real
+    return lags,np.concatenate((res[n//2:],res[:n//2]))
+
+def moving_average(signal, window=3) :
+    ret = np.cumsum(signal, axis=0, dtype=float)
+    ret[window:] = ret[window:] - ret[:-window]
+    ret =  ret[window - 1:] / window
+    new_signal = np.ones_like(signal)*ret[-1]
+    new_signal[:-window+1] = ret
+    return new_signal

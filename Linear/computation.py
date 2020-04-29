@@ -32,7 +32,6 @@ Yf = hankel.constructHistorical(y,horizon,past=False)
 
 #%% max element
 max_el = min(Yp.shape[0],Yf.shape[0])
-max_el
 Y = np.vstack((Yp[:max_el,:].T,Yf[:max_el,:].T))
 U = np.vstack((Up[:max_el,:].T,Uf[:max_el,:].T))
 
