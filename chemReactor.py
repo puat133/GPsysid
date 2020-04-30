@@ -14,8 +14,8 @@ np.random.seed(1200)
 data = sio.loadmat('ForIdentification.mat')
 resampling = 5
 ma_smoother = 14
-tempIndex = 8
-u = data['u'][::resampling,[3,6]];u = u.T#u=u[np.newaxis,:]
+tempIndex = 1
+u = data['u'][::resampling,[0,-2,-1]];u = u.T#u=u[np.newaxis,:]
 y = data['delta_T'][::resampling,tempIndex];y=y[np.newaxis,:]
 y = y-y[:,-1]
 y = y/(np.max(y)-np.min(y)) #scaled to 0-1
