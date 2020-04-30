@@ -10,14 +10,15 @@ from matplotlib import rc
 import scipy.io as sio
 import sippy
 #%%
-np.random.seed(1200)
+np.random.seed(0)
 data = sio.loadmat('ForIdentification.mat')
 resampling = 5
 ma_smoother = 14
-tempIndex = 1
-u = data['u'][::resampling,[0,-2,-1]];u = u.T#u=u[np.newaxis,:]
-y = data['delta_T'][::resampling,tempIndex];y=y[np.newaxis,:]
-y = y-y[:,-1]
+tempIndex = 0
+u = data['u'][::resampling,[-2,-1]];u = u.T#u=u[np.newaxis,:]
+y = data['delta_T'][::resampling,:3];y = y.T#y=y[np.newaxis,:]
+#%%
+y = y-y[:,-1][:,np.newaxis]
 y = y/(np.max(y)-np.min(y)) #scaled to 0-1
 u = u - np.mean(u,axis=1)[:,np.newaxis]
 #%%
@@ -45,15 +46,15 @@ sys_id = sippy.system_identification(y.T,u.T,'N4SID'
                                     #  ,SS_p=horizon,SS_f=horizon
                                      ,SS_A_stability=True
                                      ,IC='BIC'
-                                     ,SS_orders=[2,8]
+                                     ,SS_orders=[5,8]
                                      )
 
 #%%
-nx = sys_id.A_K.shape[0]
+nx = sys_id.A.shape[0]
 # iA = np.zeros((nx,nx))
 # iB = np.zeros((nx,1))
-iA = sys_id.A_K #np.random.randn(nx,nx)
-iB = sys_id.B_K #np.ones((nx,1))
+iA = sys_id.A #np.random.randn(nx,nx)
+iB = sys_id.B #np.ones((nx,1))
 # iA = np.array([[0.0146,-0.1294],
 #                 [-0.5902,-0.2214]])
 # iB = np.array([[-0.1319],[0.7236]])
@@ -67,7 +68,7 @@ sim = a.Simulate(steps,nx,u_extend,y_ma,nbases,L,PFweightNum=30)
 sim.iA = iA#np.zeros((2,2)) 
 sim.iB = iB#np.zeros((2,1))
 sim.burnInPercentage = 25
-sim.lQ = 2000 #for prior QR
+sim.lQ = 1000 #for prior QR
 sim.ell = 1
 sim.Vgain = 1e5
 sim.run()
@@ -77,12 +78,13 @@ sim.run()
 y_test_med,y_test_loQ,y_test_hiQ = sim.evaluate(y_test,u_test,Kn=10)
 
 #%%
-fig = plt.figure(figsize=(20,10))
-plt.plot(y_test.T,color='k',linewidth=1,label='Ground Truth')
-plt.plot(y_test_med[0,:],color='b',linewidth=0.5,label='Median')
-plt.fill_between(np.arange(y_test_loQ.shape[1]),y_test_loQ[0,:],y_test_hiQ[0,:], color='b', alpha=.1, label=r'95 \% confidence')
-plt.legend()
-plt.show()
+for i in range(sim.ny):
+    fig = plt.figure(figsize=(20,10))
+    plt.plot(y_test[i,:],color='k',linewidth=1,label='Ground Truth')
+    plt.plot(y_test_med[i,:],color='b',linewidth=0.5,label='Median')
+    plt.fill_between(np.arange(y_test_loQ.shape[1]),y_test_loQ[i,:],y_test_hiQ[i,:], color='b', alpha=.1, label=r'95 \% confidence')
+    plt.legend()
+    plt.savefig('delta_T_{}.png'.format(i))
 
 
 # %%

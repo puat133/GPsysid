@@ -182,6 +182,7 @@ Note: Matlab cholesky is transpose of numpy cholesky
 # @njitParallel
 def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L,u,y,R):
     # N = a.shape[1]
+    ny = y.shape[0]
     Qchol = np.linalg.cholesky(Q).T
     # for t in trange(timeStep,desc='SMC - {} th'.format(k+1)):
     for t in nb.prange(timeStep):
@@ -190,9 +191,13 @@ def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L
             if k>0:
                 a[t,:-1] = systematic_resampling(PFweight[t-1,:],PFweightNum-1)
                 f = evaluate_model(iA,iB,A,index,L,xPF[a[t,:-1],:,t-1].T,uTile[:,:-1]) 
+                
                 xPF[:-1,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum-1)).T
+                
                 f = evaluate_model(iA,iB,A,index,L,xPF[:,:,t-1].T,uTile)
+                
                 waN = PFweight[t-1,:]*mvnpdf(f,xPF[-1,:,t].reshape((-1,1)),Q)
+                
                 waN /= np.sum(waN)
                 a[t,-1] = systematic_resampling(waN,1)
             else:
@@ -201,8 +206,8 @@ def runParticleFilter(Q,timeStep,k,a,PFweight,PFweightNum,iA,iB,A,index,xPF,nx,L
                 xPF[:,:,t] = (f + Qchol@np.random.randn(nx,PFweightNum)).T
 
 
-        log_w = -0.5*np.square(xPF[:,-1,t]-y[:,t])/R
-        PFweight[t,:] = np.exp(log_w-np.max(log_w))
+        log_w = np.sum(-0.5*np.square(xPF[:,-ny:,t]-y[:,t])/R,axis=1)
+        PFweight[t,:] = np.exp(log_w-np.max(log_w)).flatten()
         PFweight[t,:] /= np.sum(PFweight[t,:])
 
     return a,PFweight,xPF

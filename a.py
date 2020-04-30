@@ -128,9 +128,9 @@ class Simulate:
     def addmodel(self,newA,newQ):
         self.__models.append((newA,newQ))
 
-    #Assume that observation function gives the last element of x
-    def observe(self,t):
-        return self.__xPF[-1,:,t]
+    #Assume that observation function gives the last ny elements of x
+    def observe(self,x):
+        return x[-self.__ny:]
 
     def setToZero(self):
         self.__PFweight = self.__PFweightZero.copy()
@@ -332,13 +332,13 @@ class Simulate:
             self.__update_statistics()
 
     def evaluate(self,yTest,uTest,Kn=1):
-        ny = yTest.shape[0]
+        # ny = yTest.shape[0]
         burn_in = (self.__burnInPercentage*self.__steps)//100
         remain_step = self.__steps - burn_in
         eval_timeSteps = yTest.shape[1]
-        x_test_sim = np.zeros((self.__nx,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
+        x_test_sim = np.zeros((remain_step*Kn,self.__nx,eval_timeSteps),dtype=np.float64,order='C')
         # if yTest.ndim > 1:
-        y_test_sim = np.zeros((ny,eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
+        y_test_sim = np.zeros((remain_step*Kn,self.__ny,eval_timeSteps),dtype=np.float64,order='C')
         # else:
             # y_test_sim = np.zeros((eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
         if isinstance(self.__R,np.ndarray):
@@ -356,13 +356,15 @@ class Simulate:
             for kn in range(Kn):
                 ki = k*Kn+ kn
                 for t in range(eval_timeSteps-1):
-                    x_test_sim[:,t+1,ki] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,x_test_sim[:,t,ki],uTest[:,t])+Qchol@np.random.randn(self.__nx)
-                    y_test_sim[:,t,ki] = x_test_sim[-1,t,ki] + Rchol*np.random.randn()#Rchol@np.random.randn(self.ny)
+                    x_test_sim[ki,:,t+1] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,x_test_sim[ki,:,t],uTest[:,t])+Qchol@np.random.randn(self.__nx)
+                    # y_test_sim[ki,:,t] = x_test_sim[ki,t,-1] + Rchol*np.random.randn()
+                    #Rchol@np.random.randn(self.ny)
+                    y_test_sim[ki,:,t] = self.observe(x_test_sim[ki,:,t]) + Rchol*np.random.randn(self.__ny)
 
 
-        y_test_med = np.median(y_test_sim,axis=2)
-        y_test_loQ = np.quantile(y_test_sim,0.025,axis=2)
-        y_test_hiQ = np.quantile(y_test_sim,0.975,axis=2)
+        y_test_med = np.median(y_test_sim,axis=0)
+        y_test_loQ = np.quantile(y_test_sim,0.025,axis=0)
+        y_test_hiQ = np.quantile(y_test_sim,0.975,axis=0)
         return y_test_med,y_test_loQ,y_test_hiQ
 
 
