@@ -11,11 +11,14 @@ import scipy.io as sio
 import sippy
 import argparse
 import parser_help as ph
+import pathlib
+import datetime
+import os
 #%%
 '''
 resampling = 
 '''
-def chemReactorGP(randSeed=0,resampling=5,ma_smoother=14,
+def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
                     data_extension_percentage=50,
                     minSS_orders=5,maxSS_orders=8,useLinear=True,
                     samples_num=1000,particles_num=30,
@@ -89,7 +92,8 @@ def chemReactorGP(randSeed=0,resampling=5,ma_smoother=14,
         plt.plot(y_test_med[i,:],color='b',linewidth=0.5,label='Median')
         plt.fill_between(np.arange(y_test_loQ.shape[1]),y_test_loQ[i,:],y_test_hiQ[i,:], color='b', alpha=.1, label=r'95 \% confidence')
         plt.legend()
-        plt.savefig('delta_T_{}.png'.format(i))
+        filename = str(simResultPath/'delta_T_{}.png'.format(i))
+        plt.savefig(filename)
 
 
 #%%
@@ -113,9 +117,22 @@ if __name__=='__main__':
     ph.add_boolean_argument(parser,'useLinear',default=True,messages='Whether to N4SID Linear Dynamic as mean in prior, Default=True')
 
     args = parser.parse_args()
-    chemReactorGP(randSeed=args.randSeed,resampling=args.resampling,ma_smoother=args.ma_smoother,
+
+    folderName = 'NESTE_GP_SYSID-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
+    if 'WRKDIR' in os.environ:
+        simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
+    elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
+        simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
+    else:
+        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+    if not simResultPath.exists():
+        simResultPath.mkdir()
+
+    chemReactorGP(simResultPath,randSeed=args.randSeed,resampling=args.resampling,ma_smoother=args.ma_smoother,
                     data_extension_percentage=args.extension,
                     minSS_orders=args.minSS_orders,maxSS_orders=args.maxSS_orders,useLinear=args.useLinear,
                     samples_num=args.samples_num,particles_num=args.particles_num,
                     bases_num=args.bases_num,ratio_L=args.ratio_L,Kn=args.Kn,
                     burnPercentage=args.burn,lQ=args.lQ,ell=args.lQ,Vgain=args.Vgain)
+
+    
