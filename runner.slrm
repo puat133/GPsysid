@@ -1,0 +1,40 @@
+#!/usr/bin/bash
+#SBATCH --time=5-0 #time-requested
+#SBATCH --mem-per-cpu=12G # memory
+#SBATCH --gres=gpu:v100:1
+#SBATCH --output twoDtest2-%J.log
+##First activate CUPYrc
+
+source /home/${USER}/.bashrc
+conda activate CUPY72 
+
+samples=$1 #First Argument is Fourier Basis
+bases=$2 #Second Argument
+lQ=$3
+Vgain=$4
+ratioL=$5
+
+
+
+# if __name__=='__main__':
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--randSeed',default=0,type=int,help='random Seed number, Default=0')
+#     parser.add_argument('--resampling',default=5,type=int,help='resampling the timeseries data (daily), Default=5')
+#     parser.add_argument('--ma-smoother',default=14,type=int,help='Smoothen the output data before processing, Default=14')
+#     parser.add_argument('--extension',default=50,type=int,help='data is extended before and after so that at both end they are zero, Default=50')
+#     parser.add_argument('--minSS-orders',default=3,type=int,help='Minimum SS orders, Default=3')
+#     parser.add_argument('--maxSS-orders',default=8,type=int,help='Maximum SS orders, Default=8')
+#     parser.add_argument('--samples-num',default=1000,type=int,help='MCMC samples number, Default=1000')
+#     parser.add_argument('--particles-num',default=30,type=int,help='Particles number for particle filter, Default=30')
+#     parser.add_argument('--bases-num',default=5,type=int,help='Number of bases for each stata/input, Default=5')
+#     parser.add_argument('--ratio-L',default=1,type=int,help='L reciprocal ratio, Default=1')
+#     parser.add_argument('--Kn',default=10,type=int,help='How many times a sample repeated in evaluation, Default=10')
+#     parser.add_argument('--burn',default=25,type=int,help='Burn percentage, Default=25')
+#     parser.add_argument('--lQ',default=1e2,type=float,help='lQ constant, Default=1e2')
+#     parser.add_argument('--ell',default=1.,type=float,help='ell constant, Default=1')
+#     parser.add_argument('--Vgain',default=1e3,type=float,help='Vgain constant, Default=1e3')
+#     ph.add_boolean_argument(parser,'useLinear',default=True,messages='Whether to N4SID Linear Dynamic as mean in prior, Default=True')
+
+#by default now using sari's algorithm
+python chemReactorGP.py --samples-num=$samples --bases-num=$bases --lQ=$lQ --Vgain=$Vgain --ratio-L=$ratioL
+
