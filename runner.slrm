@@ -36,5 +36,5 @@ ratioL=$5
 #     ph.add_boolean_argument(parser,'useLinear',default=True,messages='Whether to N4SID Linear Dynamic as mean in prior, Default=True')
 
 #by default now using sari's algorithm
-python chemReactorGP.py --samples-num=$samples --bases-num=$bases --lQ=$lQ --Vgain=$Vgain --ratio-L=$ratioL
+python chemReactor.py --samples-num=$samples --bases-num=$bases --lQ=$lQ --Vgain=$Vgain --ratio-L=$ratioL
 
