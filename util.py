@@ -238,3 +238,52 @@ def moving_average(signal, window=3) :
     new_signal = np.ones_like(signal)*ret[-1]
     new_signal[:-window+1] = ret
     return new_signal
+
+
+# def _save_object(f,obj):
+#     excluded_matrix = []
+#     for key,value in obj.__dict__.items():
+#         if isinstance(value,int) or isinstance(value,float) or isinstance(value,str) or isinstance(value,bool):
+#             f.create_dataset(key,data=value)
+#             continue
+#         elif isinstance(value,np.ndarray):
+#             if key in excluded_matrix:
+#                 continue
+#             else:
+#                 if value.ndim >0:
+#                     f.create_dataset(key,data=value,compression='gzip')
+#                 else:
+#                     f.create_dataset(key,data=value)
+        
+
+def _save_object(f,obj,end_here=False):
+    excluded_matrix = []
+    if isinstance(obj,dict):
+        dict_items = obj.items()
+    else:
+        dict_items = obj.__dict__.items()
+    for key,value in dict_items:
+        if isinstance(value,int) or isinstance(value,float) or isinstance(value,str) or isinstance(value,bool):
+            f.create_dataset(key,data=value)
+            continue
+        elif isinstance(value,np.ndarray):
+            if key in excluded_matrix:
+                continue
+            else:
+                if value.ndim >0:
+                    f.create_dataset(key,data=value,compression='gzip')
+                else:
+                    f.create_dataset(key,data=value)
+        
+        else:
+            if not end_here:
+                
+                # typeStr = str(type(value))
+                if isinstance(value,nb.typed.typedlist.List) or isinstance(value,list):
+                    grp = f.create_group(key)
+                    res_dct = {str(i): value[i] for i in range(len(value))} 
+                    _save_object(grp,res_dct,end_here=True)
+                    
+
+
+                        

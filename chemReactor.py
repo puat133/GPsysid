@@ -85,6 +85,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     #%%
     y_test_med,y_test_loQ,y_test_hiQ = sim.evaluate(y_test,u_test,Kn=Kn)
 
+    sim.save(str(simResultPath/'result.hdf5'))
     #%%
     for i in range(sim.ny):
         fig = plt.figure(figsize=(20,10))

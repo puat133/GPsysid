@@ -1,6 +1,7 @@
 import numpy as np
 import numba as nb
 import util
+import h5py
 from tqdm import trange
 from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import multivariate_normal as mvn
@@ -92,8 +93,13 @@ class Simulate:
         self.__nbases = nbases #assumed to be equal to all x and u
         self.__A = np.zeros((self.__nx,self.nbases**(self.__nx+self.__nu)),dtype=np.float64,order='C')
         self.__Q = np.eye(self.__nx)
-        self.__models = List()
-        self.__models.append((self.__A,self.__Q))
+        # self.__models = List()
+        # self.__models.append((self.__A,self.__Q))
+        self.__As = []
+        self.__Qs = []
+        self.__As.append(self.__A)
+        self.__Qs.append(self.__Q)
+
         self.__index = util.create_index(self.__nx+self.__nu,self.nbases)
         self.__L = L
         self.__timeStep = self.__y.shape[1]
@@ -122,7 +128,9 @@ class Simulate:
         self.__V = util.spectrumRadial(np.sqrt(self.__lambda),self.__Vgain,self.__ell)
         self.__burnInPercentage = 1
         
-        
+    def save(self,file_name):
+        with h5py.File(file_name,'w') as f:
+            util._save_object(f,self)    
         
     
     def addmodel(self,newA,newQ):
@@ -136,7 +144,8 @@ class Simulate:
         self.__PFweight = self.__PFweightZero.copy()
         self.__a = self.__aZero.copy()
         self.__xPF = self.__xPFZero.copy()
-        
+
+
     @property
     def burnInPercentage(self):
         return self.__burnInPercentage
@@ -297,7 +306,9 @@ class Simulate:
     def __update_statistics(self):
         Phi,Psi,Sig = util.compute_Phi_Psi_Sig(self.__iA,self.__iB,self.__x_prim,self.__index,self.__L,self.__u)
         self.__A,self.__Q = util.gibbsParam(Phi,Psi,Sig,self.__V,self.__LambdaQ,self.__lQ,self.__timeStep-1,self.__I)
-        self.__models.append((self.__A,self.__Q))
+        # self.__models.append((self.__A,self.__Q))
+        self.__As.append(self.__A)
+        self.__Qs.append(self.__Q)
 
 
 
@@ -350,7 +361,11 @@ class Simulate:
         if uTest.ndim == 1:
             uTest = uTest[np.newaxis,:]
         for k in trange(remain_step,desc='Evaluation'):
-            self.__A,self.__Q = self.__models[k+burn_in]
+            # self.__A,self.__Q = self.__models[k+burn_in]
+            
+            self.__A = self.__As[k+burn_in]
+            self.__Q = self.__Qs[k+burn_in]
+
             Qchol = np.linalg.cholesky(self.__Q)
             
             for kn in range(Kn):
