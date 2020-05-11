@@ -1,6 +1,6 @@
 #ignore classical_approach folder
 
-Classical_Approach/
+Data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
