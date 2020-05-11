@@ -1,3 +1,7 @@
+#ignore classical_approach folder
+
+Classical_Approach/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
