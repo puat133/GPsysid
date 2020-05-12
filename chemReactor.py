@@ -30,6 +30,10 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     u = data['u'].T#[::resampling,[-2,-1]];u = u.T#u=u[np.newaxis,:]
     y = data['y'].T#[::resampling,:3];y = y.T#y=y[np.newaxis,:]
     yVal = data['yVal'].T
+
+    #select only first three
+    y = y[:3,:]
+    yVal = yVal[:3,:]
     #%%
     y = y-y[:,-1][:,np.newaxis]
     y = y/(np.max(y)-np.min(y)) #scaled to 0-1
