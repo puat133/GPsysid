@@ -26,11 +26,10 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
                     burnPercentage=25,lQ=100,ell=1.,Vgain=1e3):
     np.random.seed(randSeed)
     data = sio.loadmat('ForIdentification.mat')
-    # resampling = 5
-    # ma_smoother = 
-    # tempIndex = 0
-    u = data['u'][::resampling,[-2,-1]];u = u.T#u=u[np.newaxis,:]
-    y = data['delta_T'][::resampling,:3];y = y.T#y=y[np.newaxis,:]
+    
+    u = data['u'].T#[::resampling,[-2,-1]];u = u.T#u=u[np.newaxis,:]
+    y = data['y'].T#[::resampling,:3];y = y.T#y=y[np.newaxis,:]
+    yVal = data['yVal'].T
     #%%
     y = y-y[:,-1][:,np.newaxis]
     y = y/(np.max(y)-np.min(y)) #scaled to 0-1
@@ -41,24 +40,26 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     #Extend u and y
     extension = data_extension_percentage # 50% extension
     y_extend = np.zeros((y.shape[0],(y.shape[1]*(100+extension)//100)))
+    yVal_extend = np.zeros((y.shape[0],(yVal.shape[1]*(100+extension)//100)))
     u_extend = np.zeros((u.shape[0],(u.shape[1]*(100+extension)//100)))
     shift = extension*y.shape[1]//200
-    y_extend[:,shift+1:-shift] = y
-    u_extend[:,shift+1:-shift] = u
-    y_ma = util.moving_average(y_extend.T,ma_smoother).T
+    y_extend[:,shift:-shift] = y
+    yVal_extend[:,shift:-shift] = yVal
+    u_extend[:,shift:-shift] = u
+    # y_ma = util.moving_average(y_extend.T,ma_smoother).T
     plt.plot(y.T)
-    plt.plot(y_ma.T)
+    # plt.plot(y_ma.T)
     # %%
     # T_test = T
     u_test = u_extend
-    y_test= y_ma
+    y_test= yVal_extend
     # t = np.arange(T)
     #%%
     sys_id = sippy.system_identification(y.T,u.T,'N4SID'
                                         #  ,centering='InitVal'
                                         #  ,SS_p=horizon,SS_f=horizon
                                         ,SS_A_stability=True
-                                        ,IC='BIC'
+                                        ,IC='AIC'
                                         ,SS_orders=[minSS_orders,maxSS_orders]
                                         )
 
@@ -70,7 +71,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     # nbases=4
     L = y.shape[1]//ratio_L
     steps = samples_num
-    sim = a.Simulate(steps,nx,u_extend,y_ma,bases_num,L,PFweightNum=particles_num)
+    sim = a.Simulate(steps,nx,u_extend,y_extend,bases_num,L,PFweightNum=particles_num)
     if useLinear:
         sim.iA = iA
         sim.iB = iB
