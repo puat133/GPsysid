@@ -160,13 +160,13 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
-    folderName = 'NESTE_GP_SYSID-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
+    folderName = 'Results-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
     if 'WRKDIR' in os.environ:
-        simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult'/folderName
-    elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult').exists():
-        simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult')/folderName
+        simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult_Neste'/folderName
+    elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult_Neste').exists():
+        simResultPath = pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult/Neste')/folderName
     else:
-        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult'/folderName
+        simResultPath = pathlib.Path.home() / 'Documents' / 'SimulationResult_Neste'/folderName
     if not simResultPath.exists():
         simResultPath.mkdir()
 
