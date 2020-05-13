@@ -57,8 +57,8 @@ def chemReactorGP(path,first_outputs=3,
         yVal_extend = np.zeros((y.shape[0],(yVal.shape[1]*(100+extension)//100)))
         u_extend = np.zeros((u.shape[0],(u.shape[1]*(100+extension)//100)))
         shift = extension*y.shape[1]//200
-        y_extend[:,shift:-shift] = y
-        yVal_extend[:,shift:-shift] = yVal
+        y_extend[:,shift:shift+y.shape[1]] = y
+        yVal_extend[:,shift:shift+yVal.shape[1]] = yVal
         u_extend[:,shift:-shift] = u
     else:
         y_extend = y
