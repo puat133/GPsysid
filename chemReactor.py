@@ -59,7 +59,7 @@ def chemReactorGP(path,first_outputs=3,
         shift = extension*y.shape[1]//200
         y_extend[:,shift:shift+y.shape[1]] = y
         yVal_extend[:,shift:shift+yVal.shape[1]] = yVal
-        u_extend[:,shift:-shift] = u
+        u_extend[:,shift:shift+u.shape[1]] = u
     else:
         y_extend = y
         yVal_extend = yVal
