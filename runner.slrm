@@ -6,7 +6,7 @@
 ##First activate CUPY72 because it has a correct numba version
 
 source /home/${USER}/.bashrc
-conda activate CUPY72 
+conda activate Numba 
 
 samples=$1 #First Argument is Fourier Basis
 bases=$2 #Second Argument
@@ -15,8 +15,5 @@ Vgain=$4
 ratioL=$5
 
 
-
-
-#by default now using sari's algorithm
 python chemReactor.py --samples-num=$samples --bases-num=$bases --lQ=$lQ --Vgain=$Vgain --ratio-L=$ratioL
 
