@@ -95,7 +95,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     iB = sys_id.B #np.ones((nx,1))
 
     
-    iC = sys_id.C
+    
     #%%
     # nbases=4
     L = y.shape[1]//ratio_L
@@ -104,7 +104,12 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     if useLinear:
         sim.iA = iA
         sim.iB = iB
-        sim.iC = iC
+    if sim.nx > sim.ny:
+        sim.iC = np.hstack(np.zeros((sim.nx-sim.ny,sim.ny)),np.eye(sim.ny))
+    else:
+        sim.iC = np.eye(sim.ny)
+
+        
 
     sim.burnInPercentage = burnPercentage
     sim.lQ = lQ #for prior QR
@@ -135,7 +140,7 @@ if __name__=='__main__':
     parser.add_argument('--randSeed',default=0,type=int,help='random Seed number, Default=0')
     parser.add_argument('--resampling',default=7,type=int,help='resampling the timeseries data (daily), Default=7')
     parser.add_argument('--ma-smoother',default=14,type=int,help='Smoothen the output data before processing, Default=14')
-    parser.add_argument('--extension',default=50,type=int,help='data is extended before and after so that at both end they are zero, Default=50')
+    parser.add_argument('--extension',default=10,type=int,help='data is extended before and after so that at both end they are zero, Default=50')
     parser.add_argument('--minSS-orders',default=3,type=int,help='Minimum SS orders, Default=3')
     parser.add_argument('--maxSS-orders',default=8,type=int,help='Maximum SS orders, Default=8')
     parser.add_argument('--samples-num',default=1000,type=int,help='MCMC samples number, Default=1000')
