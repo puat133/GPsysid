@@ -104,11 +104,15 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     if useLinear:
         sim.iA = iA
         sim.iB = iB
+
+    
     if sim.nx > sim.ny:
         sim.iC = np.hstack(np.zeros((sim.nx-sim.ny,sim.ny)),np.eye(sim.ny))
     else:
         sim.iC = np.eye(sim.ny)
 
+    #experimental
+    sim.iC = sys_id.C
         
 
     sim.burnInPercentage = burnPercentage
