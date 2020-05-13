@@ -18,7 +18,8 @@ import os
 '''
 resampling = 
 '''
-def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
+def chemReactorGP(path,first_outputs=3,
+                    randSeed=0,resampling=5,ma_smoother=14,
                     data_extension_percentage=50,
                     minSS_orders=5,maxSS_orders=8,useLinear=True,
                     samples_num=1000,particles_num=30,
@@ -27,12 +28,18 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     np.random.seed(randSeed)
     data = sio.loadmat('ForIdentification.mat')
     
-    #select only first three output
-    u = data['u'][::resampling,:];u = u.T#u=u[np.newaxis,:]
-    y = data['y'][::resampling,:3];y = y.T#y=y[np.newaxis,:]
-    yVal = data['yVal'][::resampling,:3]; yVal=yVal.T
-
+    if resampling>1:
+        u = data['u'][::resampling,:]
+        y = data['y'][::resampling,:first_outputs]
+        yVal = data['yVal'][::resampling,:first_outputs]
+    else:
+        u = data['u']
+        y = data['y'][:,:first_outputs]
+        yVal = data['yVal'][:,:first_outputs]
     
+    u = u.T#u=u[np.newaxis,:]
+    y = y.T#y=y[np.newaxis,:]
+    yVal=yVal.T
 
     #%% Scaling
     # y = y-y[:,-1][:,np.newaxis]
@@ -71,7 +78,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     u_train = u_extend
     y_train = y_extend
 
-    # t = np.arange(T)
+    t = np.arange(u_extend.shape[1])
     #%%
     sys_id = sippy.system_identification(y_train,u_train,'N4SID'
                                         #  ,centering='InitVal'
@@ -107,32 +114,38 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
 
     
     if sim.nx > sim.ny:
-        sim.iC = np.hstack(np.zeros((sim.nx-sim.ny,sim.ny)),np.eye(sim.ny))
+        sim.iC = np.hstack((np.zeros((sim.ny,sim.nx-sim.ny)),np.eye(sim.ny)))
     else:
         sim.iC = np.eye(sim.ny)
 
     #experimental
-    sim.iC = sys_id.C
+    # sim.iC = sys_id.C
         
 
     sim.burnInPercentage = burnPercentage
     sim.lQ = lQ #for prior QR
     sim.ell = ell
     sim.Vgain = Vgain
+    sim.R = 1e-3
     sim.run()
 
 
     #%%
-    y_test_med,y_test_loQ,y_test_hiQ = sim.evaluate(y_test,u_test,Kn=Kn)
+    sim.evaluate(y_test,u_test,Kn=Kn)
 
+    y_test_mea = np.mean(sim.y_test_sim,axis=0)
+    y_test_med = np.median(sim.y_test_sim,axis=0)
+    y_test_loQ = np.quantile(sim.y_test_sim,0.025,axis=0)
+    y_test_hiQ = np.quantile(sim.y_test_sim,0.975,axis=0)
     sim.save(str(simResultPath/'result.hdf5'))
     #%%
     for i in range(sim.ny):
         fig = plt.figure(figsize=(20,10))
-        plt.plot(yid[i,:],color='r',linewidth=1,label='Linear System')
-        plt.plot(y_test[i,:],color='k',linewidth=1,label='Ground Truth')
-        plt.plot(y_test_med[i,:],color='b',linewidth=0.5,label='Median')
-        plt.fill_between(np.arange(y_test_loQ.shape[1]),y_test_loQ[i,:],y_test_hiQ[i,:], color='b', alpha=.1, label=r'95 \% confidence')
+        plt.plot(t,yid[i,:],color='r',linewidth=1,label='Linear System')
+        plt.plot(t,y_test[i,:],color='k',linewidth=1,label='Ground Truth')
+        # plt.plot(t,y_test_sim[:,i,:].T,color='b',linewidth=0.2,alpha=0.01)
+        plt.plot(t,y_test_mea[i,:],color='b',linewidth=0.5)
+        plt.fill_between(t,y_test_loQ[i,:],y_test_hiQ[i,:], color='b', alpha=.1, label=r'95 \% confidence')
         plt.legend()
         filename = str(simResultPath/'delta_T_{}.png'.format(i))
         plt.savefig(filename)
@@ -147,6 +160,7 @@ if __name__=='__main__':
     parser.add_argument('--extension',default=10,type=int,help='data is extended before and after so that at both end they are zero, Default=50')
     parser.add_argument('--minSS-orders',default=3,type=int,help='Minimum SS orders, Default=3')
     parser.add_argument('--maxSS-orders',default=8,type=int,help='Maximum SS orders, Default=8')
+    parser.add_argument('--first-outputs',default=1,type=int,help='Take these first outputs for consideration, Default=1')
     parser.add_argument('--samples-num',default=1000,type=int,help='MCMC samples number, Default=1000')
     parser.add_argument('--particles-num',default=30,type=int,help='Particles number for particle filter, Default=30')
     parser.add_argument('--bases-num',default=5,type=int,help='Number of bases for each stata/input, Default=5')
@@ -170,7 +184,8 @@ if __name__=='__main__':
     if not simResultPath.exists():
         simResultPath.mkdir()
 
-    chemReactorGP(simResultPath,randSeed=args.randSeed,resampling=args.resampling,ma_smoother=args.ma_smoother,
+    chemReactorGP(simResultPath,first_outputs=args.first_outputs,
+                    randSeed=args.randSeed,resampling=args.resampling,ma_smoother=args.ma_smoother,
                     data_extension_percentage=args.extension,
                     minSS_orders=args.minSS_orders,maxSS_orders=args.maxSS_orders,useLinear=args.useLinear,
                     samples_num=args.samples_num,particles_num=args.particles_num,

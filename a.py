@@ -128,6 +128,8 @@ class Simulate:
         self.__Vgain = 1000
         self.__V = util.spectrumRadial(np.sqrt(self.__lambda),self.__Vgain,self.__ell)
         self.__burnInPercentage = 1
+        self.x_test_sim = None
+        self.y_test_sim = None
         
     def save(self,file_name):
         with h5py.File(file_name,'w') as f:
@@ -357,9 +359,9 @@ class Simulate:
         burn_in = (self.__burnInPercentage*self.__steps)//100
         remain_step = self.__steps - burn_in
         eval_timeSteps = yTest.shape[1]
-        x_test_sim = np.zeros((remain_step*Kn,self.__nx,eval_timeSteps),dtype=np.float64,order='C')
+        self.x_test_sim = np.zeros((remain_step*Kn,self.__nx,eval_timeSteps),dtype=np.float64,order='C')
         # if yTest.ndim > 1:
-        y_test_sim = np.zeros((remain_step*Kn,self.__ny,eval_timeSteps),dtype=np.float64,order='C')
+        self.y_test_sim = np.zeros((remain_step*Kn,self.__ny,eval_timeSteps),dtype=np.float64,order='C')
         # else:
             # y_test_sim = np.zeros((eval_timeSteps,remain_step*Kn),dtype=np.float64,order='C')
         if isinstance(self.__R,np.ndarray):
@@ -381,16 +383,14 @@ class Simulate:
             for kn in range(Kn):
                 ki = k*Kn+ kn
                 for t in range(eval_timeSteps-1):
-                    x_test_sim[ki,:,t+1] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,x_test_sim[ki,:,t],uTest[:,t])+Qchol@np.random.randn(self.__nx)
+                    self.x_test_sim[ki,:,t+1] = util.evaluate_model_thin(self.__iA,self.__iB,self.__A,self.__index,self.__L,self.x_test_sim[ki,:,t],uTest[:,t])+Qchol@np.random.randn(self.__nx)
                     # y_test_sim[ki,:,t] = x_test_sim[ki,t,-1] + Rchol*np.random.randn()
                     #Rchol@np.random.randn(self.ny)
-                    y_test_sim[ki,:,t] = self.observe(x_test_sim[ki,:,t]) + Rchol*np.random.randn(self.__ny)
+                    self.y_test_sim[ki,:,t] = self.observe(self.x_test_sim[ki,:,t]) + Rchol*np.random.randn(self.__ny)
 
 
-        y_test_med = np.median(y_test_sim,axis=0)
-        y_test_loQ = np.quantile(y_test_sim,0.025,axis=0)
-        y_test_hiQ = np.quantile(y_test_sim,0.975,axis=0)
-        return y_test_med,y_test_loQ,y_test_hiQ
+        
+        return self.x_test_sim,self.y_test_sim
 
 
 
