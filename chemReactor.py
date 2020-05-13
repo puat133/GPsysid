@@ -37,6 +37,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     #%%
     y = y-y[:,-1][:,np.newaxis]
     y = y/(np.max(y)-np.min(y)) #scaled to 0-1
+    yVal = y/(np.max(yVal)-np.min(yVal)) #scaled to 0-1
     u = u - np.mean(u,axis=1)[:,np.newaxis]
     #%%
     T = u.shape[1]
