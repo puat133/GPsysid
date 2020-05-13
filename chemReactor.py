@@ -105,7 +105,7 @@ def chemReactorGP(path,first_outputs=3,
     
     #%%
     # nbases=4
-    L = y.shape[1]//ratio_L
+    L = y.shape[1]/ratio_L
     steps = samples_num
     sim = a.Simulate(steps,nx,u_train,y_train,bases_num,L,PFweightNum=particles_num)
     if useLinear:
@@ -164,7 +164,7 @@ if __name__=='__main__':
     parser.add_argument('--samples-num',default=1000,type=int,help='MCMC samples number, Default=1000')
     parser.add_argument('--particles-num',default=30,type=int,help='Particles number for particle filter, Default=30')
     parser.add_argument('--bases-num',default=5,type=int,help='Number of bases for each stata/input, Default=5')
-    parser.add_argument('--ratio-L',default=1,type=int,help='L reciprocal ratio, Default=1')
+    parser.add_argument('--ratio-L',default=1.,type=float,help='L reciprocal ratio, Default=1')
     parser.add_argument('--Kn',default=10,type=int,help='How many times a sample repeated in evaluation, Default=10')
     parser.add_argument('--burn',default=25,type=int,help='Burn percentage, Default=25')
     parser.add_argument('--lQ',default=1e2,type=float,help='lQ constant, Default=1e2')
