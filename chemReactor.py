@@ -27,40 +27,53 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     np.random.seed(randSeed)
     data = sio.loadmat('ForIdentification.mat')
     
-    u = data['u'].T#[::resampling,[-2,-1]];u = u.T#u=u[np.newaxis,:]
-    y = data['y'].T#[::resampling,:3];y = y.T#y=y[np.newaxis,:]
-    yVal = data['yVal'].T
+    #select only first three output
+    u = data['u'][::resampling,:];u = u.T#u=u[np.newaxis,:]
+    y = data['y'][::resampling,:3];y = y.T#y=y[np.newaxis,:]
+    yVal = data['yVal'][::resampling,:3]; yVal=yVal.T
 
-    #select only first three
-    y = y[:3,:]
-    yVal = yVal[:3,:]
-    #%%
-    y = y-y[:,-1][:,np.newaxis]
-    y = y/(np.max(y)-np.min(y)) #scaled to 0-1
-    yVal = y/(np.max(yVal)-np.min(yVal)) #scaled to 0-1
-    u = u - np.mean(u,axis=1)[:,np.newaxis]
+    
+
+    #%% Scaling
+    # y = y-y[:,-1][:,np.newaxis]
+    # yVal = yVal-yVal[:,-1][:,np.newaxis]
+    # y = y/(np.max(y)-np.min(y)) #scaled to 0-1
+    # yVal = y/(np.max(yVal)-np.min(yVal)) #scaled to 0-1
+    # u = u - np.mean(u,axis=1)[:,np.newaxis]
     #%%
     T = u.shape[1]
     #%%
     #Extend u and y
     extension = data_extension_percentage # 50% extension
-    y_extend = np.zeros((y.shape[0],(y.shape[1]*(100+extension)//100)))
-    yVal_extend = np.zeros((y.shape[0],(yVal.shape[1]*(100+extension)//100)))
-    u_extend = np.zeros((u.shape[0],(u.shape[1]*(100+extension)//100)))
-    shift = extension*y.shape[1]//200
-    y_extend[:,shift:-shift] = y
-    yVal_extend[:,shift:-shift] = yVal
-    u_extend[:,shift:-shift] = u
+    if extension != 0:
+        y_extend = np.zeros((y.shape[0],(y.shape[1]*(100+extension)//100)))
+        yVal_extend = np.zeros((y.shape[0],(yVal.shape[1]*(100+extension)//100)))
+        u_extend = np.zeros((u.shape[0],(u.shape[1]*(100+extension)//100)))
+        shift = extension*y.shape[1]//200
+        y_extend[:,shift:-shift] = y
+        yVal_extend[:,shift:-shift] = yVal
+        u_extend[:,shift:-shift] = u
+    else:
+        y_extend = y
+        yVal_extend = yVal
+        u_extend = u
+
     # y_ma = util.moving_average(y_extend.T,ma_smoother).T
-    plt.plot(y.T)
+    y_extend = util.moving_average(y_extend.T,ma_smoother).T
+    yVal_extend = util.moving_average(yVal_extend.T,ma_smoother).T
+
+    # plt.plot(y.T)
     # plt.plot(y_ma.T)
     # %%
     # T_test = T
     u_test = u_extend
     y_test= yVal_extend
+    u_train = u_extend
+    y_train = y_extend
+
     # t = np.arange(T)
     #%%
-    sys_id = sippy.system_identification(y.T,u.T,'N4SID'
+    sys_id = sippy.system_identification(y_train,u_train,'N4SID'
                                         #  ,centering='InitVal'
                                         #  ,SS_p=horizon,SS_f=horizon
                                         ,SS_A_stability=True
@@ -68,18 +81,30 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
                                         ,SS_orders=[minSS_orders,maxSS_orders]
                                         )
 
+    ## Linear system identification validation for comparison
+    xid, yid = sippy.functionsetSIM.SS_lsim_predictor_form(sys_id.A_K,\
+                                sys_id.B_K,\
+                                sys_id.C,\
+                                sys_id.D,\
+                                sys_id.K,\
+                                y_test,\
+                                u_test,sys_id.x0)
     #%%
     nx = sys_id.A.shape[0]
     iA = sys_id.A #np.random.randn(nx,nx)
     iB = sys_id.B #np.ones((nx,1))
+
+    
+    iC = sys_id.C
     #%%
     # nbases=4
     L = y.shape[1]//ratio_L
     steps = samples_num
-    sim = a.Simulate(steps,nx,u_extend,y_extend,bases_num,L,PFweightNum=particles_num)
+    sim = a.Simulate(steps,nx,u_train,y_train,bases_num,L,PFweightNum=particles_num)
     if useLinear:
         sim.iA = iA
         sim.iB = iB
+        sim.iC = iC
 
     sim.burnInPercentage = burnPercentage
     sim.lQ = lQ #for prior QR
@@ -95,6 +120,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
     #%%
     for i in range(sim.ny):
         fig = plt.figure(figsize=(20,10))
+        plt.plot(yid[i,:],color='r',linewidth=1,label='Linear System')
         plt.plot(y_test[i,:],color='k',linewidth=1,label='Ground Truth')
         plt.plot(y_test_med[i,:],color='b',linewidth=0.5,label='Median')
         plt.fill_between(np.arange(y_test_loQ.shape[1]),y_test_loQ[i,:],y_test_hiQ[i,:], color='b', alpha=.1, label=r'95 \% confidence')
@@ -107,7 +133,7 @@ def chemReactorGP(path,randSeed=0,resampling=5,ma_smoother=14,
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--randSeed',default=0,type=int,help='random Seed number, Default=0')
-    parser.add_argument('--resampling',default=5,type=int,help='resampling the timeseries data (daily), Default=5')
+    parser.add_argument('--resampling',default=7,type=int,help='resampling the timeseries data (daily), Default=7')
     parser.add_argument('--ma-smoother',default=14,type=int,help='Smoothen the output data before processing, Default=14')
     parser.add_argument('--extension',default=50,type=int,help='data is extended before and after so that at both end they are zero, Default=50')
     parser.add_argument('--minSS-orders',default=3,type=int,help='Minimum SS orders, Default=3')

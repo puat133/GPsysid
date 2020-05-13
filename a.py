@@ -119,6 +119,7 @@ class Simulate:
         self.__R = R
         self.__iA = np.zeros((self.__nx,self.__nx),dtype=np.float64,order='C')
         self.__iB = np.zeros((self.__nx,self.__nu),dtype=np.float64,order='C')
+        self.__iC = np.zeros((self.__ny,self.__nx),dtype=np.float64,order='C')
         self.__I = np.eye(self.nbases**(self.__nx+self.__nu))
         self.__LambdaQ = np.eye(self.__nx)
         self.__lQ = 100
@@ -138,7 +139,8 @@ class Simulate:
 
     #Assume that observation function gives the last ny elements of x
     def observe(self,x):
-        return x[-self.__ny:]
+        # return x[-self.__ny:]
+        return self.__iC@x
 
     def setToZero(self):
         self.__PFweight = self.__PFweightZero.copy()
@@ -231,6 +233,10 @@ class Simulate:
         return self.__iB
 
     @property
+    def iC(self):
+        return self.__iC
+
+    @property
     def ell(self):
         return self.__ell
 
@@ -264,6 +270,10 @@ class Simulate:
     @iA.setter
     def iA(self,value):
         self.__iA = value
+
+    @iC.setter
+    def iC(self,value):
+        self.__iC = value
 
     @iB.setter
     def iB(self,value):
