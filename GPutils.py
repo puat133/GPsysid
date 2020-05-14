@@ -376,16 +376,16 @@ def ratspec_to_ss(A,B,controllable=True):
         F[1:,:-1] = np.eye(len(GB.c)-2)
         L[:len(GA.c),0] = GA.c[-1::-1]
         H[0,-1] = 1
-        
-    
-    # Pinf = lyapchol(F,L*np.sqrt(q))#this is lower triagular
-    # Pinf = Pinf@Pinf.conj().T
+
     Pinf = sla.solve_lyapunov(F,-q*L@L.T)
     return F,L,q,H,Pinf
 
 
 
-
+'''
+Approximating a covariance function 
+via state space representation
+'''
 def covariance_approximation(tau,F,L,q,H,Pinf=None):
     if Pinf == None:
         Pinf = sla.solve_lyapunov(F,-q*L@L.T)
@@ -397,22 +397,7 @@ def covariance_approximation(tau,F,L,q,H,Pinf=None):
     
     return approximated_cov.flatten()
 
-# function cov_approx = ss_cov(tau,F,L,q,H)
 
-#     %Pinf = are(F',zeros(size(F)),L*q*L');
-# %    Pinf = lyap(F,F',L*q*L');
-#     Pinf = lyapchol(F,L*sqrt(q));
-#     Pinf = Pinf' * Pinf;
-
-#     % Initialize covariance
-#     cov_approx = zeros(size(tau));
-  
-#     % Evaluate positive parts
-#     cov_approx(tau >= 0) = arrayfun(@(taut) H*Pinf*expm(taut*F)'*H',tau(tau >= 0));
-  
-#     % Evaluate negative parts
-#     cov_approx(tau < 0) = arrayfun(@(taut) H*expm(-taut*F)*Pinf*H',tau(tau < 0));
-# end
     
 
 
