@@ -378,29 +378,24 @@ def ratspec_to_ss(A,B,controllable=True):
         H[0,-1] = 1
         
     
-    Pinf = lyapchol(F,L*np.sqrt(q))#this is lower triagular
-    Pinf = Pinf@Pinf.conj().T
-
+    # Pinf = lyapchol(F,L*np.sqrt(q))#this is lower triagular
+    # Pinf = Pinf@Pinf.conj().T
+    Pinf = sla.solve_lyapunov(F,-q*L@L.T)
     return F,L,q,H,Pinf
 
 
-'''
-return lower triangular cholesky of continuous Lyapunov
-'''
-def lyapchol(A,B):
-    Q = B@B.conj().T
-    Pinf = sla.cholesky(ctmat.lyap(A,Q))
-    return Pinf
+
 
 def covariance_approximation(tau,F,L,q,H,Pinf=None):
     if Pinf == None:
-        Pinf = lyapchol(F,L*np.sqrt(q))
-        Pinf = Pinf@Pinf.conj().T
+        Pinf = sla.solve_lyapunov(F,-q*L@L.T)
+        
 
-    approximated_cov = np.zeros((tau.shape[0],tau.shape[0]))
-    approximated_cov = np.array([ H@Pinf@sla.expm(abs(tau_t)*F).conj().T@H.conj().T for tau_t in tau]) 
+    approximated_cov = np.zeros(tau.shape[0])
+    approximated_cov[tau>=0] = np.array([ H@Pinf@sla.expm(tau_t*F).T@H.T for tau_t in tau[tau>=0]]).flatten() 
+    approximated_cov[tau<0] = np.array([ H@sla.expm(-tau_t*F)@Pinf@H.T for tau_t in tau[tau<0]]).flatten() 
     
-    return approximated_cov
+    return approximated_cov.flatten()
 
 # function cov_approx = ss_cov(tau,F,L,q,H)
 
