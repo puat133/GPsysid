@@ -42,13 +42,12 @@ def chemReactorGP(path,first_outputs=3,
     yVal=yVal.T
 
     #%% Scaling
-    # y = y-y[:,-1][:,np.newaxis]
-    # yVal = yVal-yVal[:,-1][:,np.newaxis]
-    # y = y/(np.max(y)-np.min(y)) #scaled to 0-1
-    # yVal = y/(np.max(yVal)-np.min(yVal)) #scaled to 0-1
-    # u = u - np.mean(u,axis=1)[:,np.newaxis]
-    #%%
-    T = u.shape[1]
+    y = y-y[:,-1][:,np.newaxis]
+    yVal = yVal-yVal[:,-1][:,np.newaxis]
+    y = y/(np.max(y,axis=1)-np.min(y,axis=1)) #scaled to 0-1
+    yVal = y/(np.max(yVal,axis=1)-np.min(yVal,axis=1)) #scaled to 0-1
+    u = u - np.mean(u,axis=1)[:,np.newaxis]
+    
     #%%
     #Extend u and y
     extension = data_extension_percentage # 50% extension
@@ -155,11 +154,11 @@ def chemReactorGP(path,first_outputs=3,
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--randSeed',default=0,type=int,help='random Seed number, Default=0')
-    parser.add_argument('--resampling',default=7,type=int,help='resampling the timeseries data (daily), Default=7')
+    parser.add_argument('--resampling',default=1,type=int,help='resampling the timeseries data (daily), Default=7')
     parser.add_argument('--ma-smoother',default=14,type=int,help='Smoothen the output data before processing, Default=14')
     parser.add_argument('--extension',default=10,type=int,help='data is extended before and after so that at both end they are zero, Default=50')
-    parser.add_argument('--minSS-orders',default=3,type=int,help='Minimum SS orders, Default=3')
-    parser.add_argument('--maxSS-orders',default=8,type=int,help='Maximum SS orders, Default=8')
+    parser.add_argument('--minSS-orders',default=2,type=int,help='Minimum SS orders, Default=3')
+    parser.add_argument('--maxSS-orders',default=3,type=int,help='Maximum SS orders, Default=8')
     parser.add_argument('--first-outputs',default=1,type=int,help='Take these first outputs for consideration, Default=1')
     parser.add_argument('--samples-num',default=1000,type=int,help='MCMC samples number, Default=1000')
     parser.add_argument('--particles-num',default=30,type=int,help='Particles number for particle filter, Default=30')
@@ -170,11 +169,16 @@ if __name__=='__main__':
     parser.add_argument('--lQ',default=1e2,type=float,help='lQ constant, Default=1e2')
     parser.add_argument('--ell',default=1.,type=float,help='ell constant, Default=1')
     parser.add_argument('--Vgain',default=1e3,type=float,help='Vgain constant, Default=1e3')
+    parser.add_argument('--folderName',default="",type=str,help='folder name, Default=')
     ph.add_boolean_argument(parser,'useLinear',default=True,messages='Whether to N4SID Linear Dynamic as mean in prior, Default=True')
 
     args = parser.parse_args()
 
-    folderName = 'Results-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
+    if not args.folderName: #empty string are false
+        folderName = 'Results-'+ datetime.datetime.now().strftime('%d-%b-%Y_%H_%M_%S')
+    else:
+        folderName = args.folderName
+
     if 'WRKDIR' in os.environ:
         simResultPath = pathlib.Path(os.environ['WRKDIR']) / 'SimulationResult_Neste'/folderName
     elif 'USER' in os.environ and pathlib.Path('/scratch/work/'+os.environ['USER']+'/SimulationResult_Neste').exists():

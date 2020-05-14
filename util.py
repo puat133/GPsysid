@@ -3,7 +3,7 @@
 
 import numpy as np
 import numba as nb
-from numba.typed import List,Dict #numba typedList and typedDict
+# from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
 import scipy.fftpack as FFT
 
