@@ -14,6 +14,12 @@ import parser_help as ph
 import pathlib
 import datetime
 import os
+
+#%%
+def scale_To_zero_one(signal):
+    signal = signal-signal[:,-1][:,np.newaxis]
+    signal = signal/(np.max(signal,axis=1)-np.min(signal,axis=1)) #scaled to 0-1
+    return signal
 #%%
 '''
 resampling = 
@@ -41,12 +47,12 @@ def chemReactorGP(path,first_outputs=3,
     y = y.T#y=y[np.newaxis,:]
     yVal=yVal.T
 
-    #%% Scaling
-    y = y-y[:,-1][:,np.newaxis]
-    yVal = yVal-yVal[:,-1][:,np.newaxis]
-    y = y/(np.max(y,axis=1)-np.min(y,axis=1)) #scaled to 0-1
-    yVal = y/(np.max(yVal,axis=1)-np.min(yVal,axis=1)) #scaled to 0-1
-    u = u - np.mean(u,axis=1)[:,np.newaxis]
+    # #%% Scaling
+    # y = y-y[:,-1][:,np.newaxis]
+    # yVal = yVal-yVal[:,-1][:,np.newaxis]
+    # y = y/(np.max(y,axis=1)-np.min(y,axis=1)) #scaled to 0-1
+    # yVal = y/(np.max(yVal,axis=1)-np.min(yVal,axis=1)) #scaled to 0-1
+    # u = u - np.mean(u,axis=1)[:,np.newaxis]
     
     #%%
     #Extend u and y
@@ -67,6 +73,12 @@ def chemReactorGP(path,first_outputs=3,
     # y_ma = util.moving_average(y_extend.T,ma_smoother).T
     y_extend = util.moving_average(y_extend.T,ma_smoother).T
     yVal_extend = util.moving_average(yVal_extend.T,ma_smoother).T
+
+    
+    #%% Scaling
+    y_extend = scale_To_zero_one(y_extend)
+    yVal_extend = scale_To_zero_one(yVal_extend)
+    u_extend = u_extend - np.mean(u,axis=1)[:,np.newaxis]
 
     # plt.plot(y.T)
     # plt.plot(y_ma.T)
