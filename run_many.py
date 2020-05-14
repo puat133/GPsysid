@@ -21,16 +21,16 @@ import time
 if __name__=='__main__':
 
     pause = 10# seconds
-    samples = 100
-    ells = np.array([1.])
+    samples = 1000
+    ells = np.array([1.,2.])
     lQs  = np.array([100])
-    Vgains = np.array([1e2,1e3,1e4,1e5,1e6])
-    ratioLs = np.array([2])
+    Vgains = np.sqrt(np.array([1e6]))
+    ratioLs = np.array([0.125,0.25,0.5])
     for ell in ells:
         for lQ in lQs:
             for Vgain in Vgains:
                 for ratioL in ratioLs:
-                    folderName = "ell_{}_lQ_{}_Vgain_{}_ratioL_{}".format(ell,lQ,Vgain,ratioL)
+                    folderName = "samples_{}_ell_{}_lQ_{}_Vgain_{}_ratioL_{}".format(samples,ell,lQ,Vgain,ratioL)
                     subprocess.run(['sbatch','runner.slrm',str(samples),str(lQ),str(Vgain),
                                 str(ratioL),str(ell),folderName])
 

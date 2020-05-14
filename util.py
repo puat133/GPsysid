@@ -1,8 +1,11 @@
-#%% Python implementation of systematic_resampling.m written by Andreas Svensson 2016
+#%% mix of utility functions to serve GP -system identifications, based on 
+#%% 1. Python implementation of systematic_resampling.m written by Andreas Svensson 2016
 
 
 import numpy as np
 import numba as nb
+from scipy.special import factorial
+from scipy.interpolate import pade
 # from numba.typed import List,Dict #numba typedList and typedDict
 from scipy.stats import invwishart
 import scipy.fftpack as FFT
@@ -74,12 +77,14 @@ def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
     return A,Q
     
 
-
-
-
+'''
+We use convention that the domain is given in [0,L]
+in these basis function
+'''
 @njitParallel
 def onedim_basis(j,Li,xi):
-    return np.sin(np.pi*j*(xi.T+Li)/(2*Li))/np.sqrt(Li)
+    # return np.sin(np.pi*j*(xi.T+Li)/(2*Li))/np.sqrt(Li)
+    return np.sin(np.pi*j*(xi.T)/(Li))/np.sqrt(Li)
         
 @njitParallel
 def basis(index,L,x):
@@ -115,11 +120,16 @@ def power_kron(x,n):
             y = np.kron(y,x)        
     return y
 
+'''
+We use convention that the domain is given in [0,L]
+in these basis function
+'''
 @njitSerial
 def eigen(index,L):
     lmb = np.zeros(index.shape[1])
     for i in nb.prange(index.shape[1]):
-        lmb[i] =  np.sum(np.square((0.5*np.pi*index[:,i]/L)))    
+        # lmb[i] =  np.sum(np.square((0.5*np.pi*index[:,i]/L)))    
+        lmb[i] =  np.sum(np.square((np.pi*index[:,i]/L)))    
     return lmb
 
 @njitSerial
@@ -135,7 +145,12 @@ def create_index(m,nbases):
 # V = 1000*diag(prod(S_SE(sqrt(lambda),1),2));
 @njitSerial
 def spectrumRadial(s,sf=1.,ell=1.):
-    return sf*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(ell*ell*np.square(s)))
+    return np.square(sf)*np.sqrt(2*np.pi)*ell*np.exp(-0.5*(ell*ell*np.square(s)))
+
+@njitSerial
+def covarianceRadial(diff_x,sf=1.,ell=1.):
+    return np.square(sf)*ell*np.exp(-0.5*(np.square(diff_x)/np.square(ell)))
+
 
 
 @njitSerial
@@ -240,20 +255,6 @@ def moving_average(signal, window=3) :
     return new_signal
 
 
-# def _save_object(f,obj):
-#     excluded_matrix = []
-#     for key,value in obj.__dict__.items():
-#         if isinstance(value,int) or isinstance(value,float) or isinstance(value,str) or isinstance(value,bool):
-#             f.create_dataset(key,data=value)
-#             continue
-#         elif isinstance(value,np.ndarray):
-#             if key in excluded_matrix:
-#                 continue
-#             else:
-#                 if value.ndim >0:
-#                     f.create_dataset(key,data=value,compression='gzip')
-#                 else:
-#                     f.create_dataset(key,data=value)
         
 
 def _save_object(f,obj,end_here=False):
@@ -287,3 +288,30 @@ def _save_object(f,obj,end_here=False):
 
 
                         
+def se_pade(m,n,s,ell):
+    order = m+n
+    
+    #power
+    p = np.arange(order,-1,-1)
+
+    #intermediate variable
+    c = np.power((np.square(ell)/2),p)/factorial(p)
+
+    pade_res = pade(c,n,m)
+
+    b = pade_res[0].coefficients
+    a = pade_res[1].coefficients
+
+    #to match with the original output
+    a = np.flip(a)/a[0]
+    b = np.flip(b)/b[0]
+
+    A = np.zeros(2*a.shape[0]-1)
+    B = np.zeros(2*b.shape[0]-1)
+
+    A[::2] = a
+    B[::2] = b
+
+    B = B*np.square(s)*np.sqrt(2*np.pi)*ell
+
+    return B,A
