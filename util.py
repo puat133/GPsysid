@@ -6,7 +6,8 @@ import numpy as np
 import numba as nb
 from scipy.special import factorial
 from scipy.interpolate import pade
-# from numba.typed import List,Dict #numba typedList and typedDict
+import scipy.linalg as sla
+import control.matlab as ctmat
 from scipy.stats import invwishart
 import scipy.fftpack as FFT
 
@@ -287,24 +288,31 @@ def _save_object(f,obj,end_here=False):
                     
 
 
-                        
+'''
+SE spectral function using Pad`e approximation
+equivalent to se_pade of Simo Sarkka
+constructed using scipy
+m is the polynomial order of the numerator
+n is the polynomial order of the denominator
+'''                 
 def se_pade(m,n,s,ell):
     order = m+n
     
     #power
-    p = np.arange(order,-1,-1)
+    p = np.arange(order+1)
 
     #intermediate variable
-    c = np.power((np.square(ell)/2),p)/factorial(p)
+    c = np.power((-np.square(ell)/2),p)/factorial(p)
 
+    #simo's implementation of pade seems different to the scipy one
+    #it seems that simo take account negativity of c in his pade_approx.m
+    #I dont know which is one correct
     pade_res = pade(c,n,m)
 
-    b = pade_res[0].coefficients
-    a = pade_res[1].coefficients
+    a = pade_res[0].coefficients
+    b = pade_res[1].coefficients
 
-    #to match with the original output
-    a = np.flip(a)/a[0]
-    b = np.flip(b)/b[0]
+    
 
     A = np.zeros(2*a.shape[0]-1)
     B = np.zeros(2*b.shape[0]-1)
@@ -312,6 +320,107 @@ def se_pade(m,n,s,ell):
     A[::2] = a
     B[::2] = b
 
-    B = B*np.square(s)*np.sqrt(2*np.pi)*ell
+    A = A*np.square(s)*np.sqrt(2*np.pi)*ell
+    return np.poly1d(A),np.poly1d(B)
 
-    return B,A
+
+'''
+[F,L,q,H,Pinf] = ratspec_to_ss(A,B,rtype)
+
+convert A(s)/B(s) into state space
+A and B are numpy.poly1d object
+
+Is this similar to tf2ss from scipy?
+'''
+def ratspec_to_ss(A,B,controllable=True):
+    q = A(0)/B(0)
+
+    LA = A.c/(np.power(1j,np.arange(len(A.c)-1,-1,-1)))
+    LB = B.c/(np.power(1j,np.arange(len(B.c)-1,-1,-1)))
+
+    #only take real coefficient from denumerator
+    LA = np.poly1d(LA.real)
+    LB = np.poly1d(LB.real)
+
+
+
+    #strangely np.roots seems flipped between real and imag
+    ra = LA.roots[LA.roots<0]
+    rb = LB.roots[LB.roots<0]
+
+    GA = np.poly(ra)
+    GB = np.poly(rb)
+
+    GA = np.poly1d(GA.real)
+    GB = np.poly1d(GB.real)
+
+    GA.c /= GA.c[-1]
+    GB.c /= GB.c[-1]
+
+    GA.c /= GB.c[0]
+    GB.c /= GB.c[0]
+
+    F = np.zeros((len(GB.c)-1,len(GB.c)-1),dtype=np.float64)
+    L = np.zeros((len(GB.c)-1,1),dtype=np.float64)
+    H = np.zeros((1,len(GB.c)-1),dtype=np.float64)
+    if controllable:
+        
+        F[-1,:] = -GB.c[-1:0:-1]
+        F[:-1,1:] = np.eye(len(GB.c)-2)
+        L[-1,0] = 1
+        H[0,:len(GA.c)] = GA.c[-1::-1]
+
+    else:
+
+        F[:,-1] = -GB.c[-1:0:-1]
+        F[1:,:-1] = np.eye(len(GB.c)-2)
+        L[:len(GA.c),0] = GA.c[-1::-1]
+        H[0,-1] = 1
+        
+    
+    Pinf = lyapchol(F,L*np.sqrt(q))#this is lower triagular
+    Pinf = Pinf@Pinf.conj().T
+
+    return F,L,q,H,Pinf
+
+
+'''
+return lower triangular cholesky of continuous Lyapunov
+'''
+def lyapchol(A,B):
+    Q = B@B.conj().T
+    Pinf = sla.cholesky(ctmat.lyap(A,Q))
+    return Pinf
+
+def covariance_approximation(tau,F,L,q,H,Pinf=None):
+    if Pinf == None:
+        Pinf = lyapchol(F,L*np.sqrt(q))
+        Pinf = Pinf@Pinf.conj().T
+
+    approximated_cov = np.zeros((tau.shape[0],tau.shape[0]))
+    approximated_cov = np.array([ H@Pinf@sla.expm(abs(tau_t)*F).conj().T@H.conj().T for tau_t in tau]) 
+    
+    return approximated_cov
+
+# function cov_approx = ss_cov(tau,F,L,q,H)
+
+#     %Pinf = are(F',zeros(size(F)),L*q*L');
+# %    Pinf = lyap(F,F',L*q*L');
+#     Pinf = lyapchol(F,L*sqrt(q));
+#     Pinf = Pinf' * Pinf;
+
+#     % Initialize covariance
+#     cov_approx = zeros(size(tau));
+  
+#     % Evaluate positive parts
+#     cov_approx(tau >= 0) = arrayfun(@(taut) H*Pinf*expm(taut*F)'*H',tau(tau >= 0));
+  
+#     % Evaluate negative parts
+#     cov_approx(tau < 0) = arrayfun(@(taut) H*expm(-taut*F)*Pinf*H',tau(tau < 0));
+# end
+    
+
+
+
+    
+
