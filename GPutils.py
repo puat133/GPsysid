@@ -376,7 +376,7 @@ def ratspec_to_ss(A,B,controllable=True):
         F[1:,:-1] = np.eye(len(GB.c)-2)
         L[:len(GA.c),0] = GA.c[-1::-1]
         H[0,-1] = 1
-
+ 
     Pinf = sla.solve_lyapunov(F,-q*L@L.T)
     return F,L,q,H,Pinf
 
@@ -386,14 +386,18 @@ def ratspec_to_ss(A,B,controllable=True):
 Approximating a covariance function 
 via state space representation
 '''
-def covariance_approximation(tau,F,L,q,H,Pinf=None):
-    if Pinf == None:
+def covariance_approximation(tau,F,L,q,H,Pinf=[]):
+    if Pinf == []:
         Pinf = sla.solve_lyapunov(F,-q*L@L.T)
         
 
     approximated_cov = np.zeros(tau.shape[0])
-    approximated_cov[tau>=0] = np.array([ H@Pinf@sla.expm(tau_t*F).T@H.T for tau_t in tau[tau>=0]]).flatten() 
-    approximated_cov[tau<0] = np.array([ H@sla.expm(-tau_t*F)@Pinf@H.T for tau_t in tau[tau<0]]).flatten() 
+    tau_pos = tau[tau>=0,np.newaxis,np.newaxis]
+    tau_neg = tau[tau<0,np.newaxis,np.newaxis]
+    approximated_cov[tau>=0] = np.tensordot((H@Pinf)[np.newaxis,:,:],sla.expm(tau_pos*F),axes=((2),(1))).squeeze()@H.T 
+    approximated_cov[tau<0] = np.tensordot(H[np.newaxis,:,:],sla.expm(-tau_neg*F),axes=((2),(1))).squeeze()@Pinf@H.T
+    # approximated_cov[tau>=0] = np.array([ H@Pinf@sla.expm(tau_t*F).T@H.T for tau_t in tau[tau>=0]]).flatten() 
+    # approximated_cov[tau<0] = np.array([ H@sla.expm(-tau_t*F)@Pinf@H.T for tau_t in tau[tau<0]]).flatten() 
     
     return approximated_cov.flatten()
 
