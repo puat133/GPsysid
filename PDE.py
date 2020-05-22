@@ -3,23 +3,26 @@
 # for u(t,x) in a one dimensional domain (0,L)
 # u(t,0) = 0
 # u_z(t,L) = 0
+import torch
 import numpy as np
-import numba as nb
-from scipy.special import factorial
-from scipy.interpolate import pade
-import scipy.linalg as sla
-import control.matlab as ctmat
-from scipy.stats import invwishart
-import scipy.fftpack as FFT
+PI = torch.acos(torch.zeros(1))
+# import numpy as np
+# import numba as nb
+# from scipy.special import factorial
+# from scipy.interpolate import pade
+# import scipy.linalg as sla
+# import control.matlab as ctmat
+# from scipy.stats import invwishart
+# import scipy.fftpack as FFT
 
-_LOG_2PI = np.log(2 * np.pi)
-CACHE = True
-PARALLEL = False
-FASTMATH = True
-jitSerial = nb.jit(parallel=False,fastmath=FASTMATH,cache=CACHE)
-jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
-njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
-njitSerial = nb.njit(parallel=False,fastmath=FASTMATH,cache=CACHE)
+# _LOG_2PI = np.log(2 * np.pi)
+# CACHE = True
+# PARALLEL = False
+# FASTMATH = True
+# jitSerial = nb.jit(parallel=False,fastmath=FASTMATH,cache=CACHE)
+# jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
+# njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)TBA
+# njitSerial = nb.njit(parallel=False,fastmath=FASTMATH,cache=CACHE)
 
 
 '''
@@ -28,11 +31,11 @@ L is the length of domain
 x is the spatial variable
 '''
 def basis(j,L,x):
-    if isinstance(j,np.ndarray):
+    if isinstance(j,torch.Tensor):
         if j.ndim == 1: #j is a vector
-            basis = np.sin(np.pi*(2*j[:,np.newaxis]-1)*x/L)/np.sqrt(L/2)
+            basis = torch.sin(PI*(2*j.view(j.shape[0],1)-1)*x/L)/torch.sqrt(L/2)
     else: #single entry j
-        basis = np.sin(np.pi*(2*j-1)*x/L)/np.sqrt(L/2)
+        basis = torch.sin(PI*(2*j-1)*x/L)/torch.sqrt(L/2)
 
     return basis
 
@@ -43,10 +46,8 @@ nbases is number of eigenfunction required.
 L is spatial domain length
 '''
 def eigenvalues(nbases,L):
-    eig = np.empty(nbases)
-    for i in range(nbases):
-        eig[i] = np.square((2*i-1)*np.pi/(2*L))
-
+    index = torch.arange(nbases)
+    eig = torch.square((2*index-1)*PI/(2*L))
     return eig
 
 '''
@@ -54,21 +55,22 @@ laplacian in the Fourier basis
 '''
 def laplacian(nbases,L):
     eig = eigenvalues(nbases,L)
-    Lap = -np.diag(eig)
+    Lap = -torch.diag(eig)
     return Lap
 
 '''
 derivative in the Fourier basis
 '''
 def derivative(nbases,L):
-    der = np.zeros((nbases,nbases))
-    L_per_pi = L/np.pi
+    der = torch.zeros((nbases,nbases))
+    L_per_pi = L/PI
     for i in range(nbases):
         for j in range(nbases):
-            if (i+j)%2 == 0:#even case
-                der[i,j] = L_per_pi/(i+j-1)
-            else:
-                der[i,j] = L_per_pi/(i-j)
+            if i != j:
+                if (i+j)%2 == 0:#even case
+                    der[i,j] = L_per_pi/(i+j-1)
+                else:
+                    der[i,j] = L_per_pi/(i-j)
     return der
 
 
@@ -79,23 +81,23 @@ class DiscreteLinearDynamic():
         self.B = B
         self.C = C
         if state_init==None:
-            self.state = np.zeros(A.shape[0])
+            self.state = torch.zeros(A.shape[0])
         else:
             self.state = state_init
         self.output = C@self.state
         self.history_length = 1000
-        self.history = np.zeros((self.history_length,self.A.shape[0]))
+        self.history = torch.zeros((self.history_length,self.A.shape[0]))
         self.index = 0
 
     
     def propagate(self,u):
-        self.state = self.A@self.state + self.B@u
+        self.state = self.A@self.state + self.B@u#.view(-1)
         self.index += 1
         self.output = self.C@self.state
         
 
     def recordstate(self):
-        self.history[self.index,:] = self.state
+        self.history[self.index,:] = self.state.squeeze()
         
 
 class KalmanFilter(DiscreteLinearDynamic):
@@ -104,16 +106,20 @@ class KalmanFilter(DiscreteLinearDynamic):
         self.Q = Q
         self.R = R
         if P_init == None:
-            self.P = np.eye(self.A.shape[0])
+            self.P = torch.eye(self.A.shape[0])
         else:
             self.P = P_init
 
-        self.P_history = np.empty((self.history_length,self.P.shape[0],self.P.shape[1]))
-        self.S_history = np.empty((self.history_length,self.R.shape[0],self.R.shape[1]))
+        self.P_history = torch.empty((self.history_length,self.P.shape[0],self.P.shape[1]))
+        self.S_history = torch.empty((self.history_length,self.R.shape[0],self.R.shape[1]))
+        self.yTilde_history = torch.empty((self.history_length,self.C.shape[0]))
 
     def record_S(self,S_input):
         self.S_history[self.index,:,:] = S_input
+
     
+    def record_yTilde(self,yTilde_input):
+        self.yTilde_history[self.index,:] = yTilde_input
 
     '''
     This implement a naive kalman filter prediction step
@@ -131,14 +137,18 @@ class KalmanFilter(DiscreteLinearDynamic):
     implementing using cholesky factorization could be faster
     '''
     def update(self,y):
-        yTilde = y - C@self.state
+        yTilde = y - self.C@self.state
         S = self.C@self.P@self.C.T + self.R
 
-        K = np.linalg.solve(self.P@self.C.T,S)
+        K = torch.cholesky_solve(self.C@self.P,S).T
         self.state = self.state + K@yTilde
         self.P = self.P - K@S@K.T
         self.record_S(S)
+        self.record_yTilde(yTilde)
 
+    '''
+    Propagate Kalman Filter
+    '''    
     def propagate(self,u,y):
         self.predictive(u)
         self.update(y)
