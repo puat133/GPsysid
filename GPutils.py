@@ -80,6 +80,7 @@ def gibbsParam(Phi, Psi, Sigma, vdiag, Lambda, l, T,I):
 
 '''
 We use convention that the domain is given in [0,L]
+This assumes the Dirictlet boundary condition
 in these basis function
 '''
 @njitParallel
