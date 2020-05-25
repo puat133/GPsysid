@@ -6,23 +6,7 @@
 import torch
 import numpy as np
 PI = torch.acos(torch.zeros(1))
-# import numpy as np
-# import numba as nb
-# from scipy.special import factorial
-# from scipy.interpolate import pade
-# import scipy.linalg as sla
-# import control.matlab as ctmat
-# from scipy.stats import invwishart
-# import scipy.fftpack as FFT
 
-# _LOG_2PI = np.log(2 * np.pi)
-# CACHE = True
-# PARALLEL = False
-# FASTMATH = True
-# jitSerial = nb.jit(parallel=False,fastmath=FASTMATH,cache=CACHE)
-# jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)
-# njitParallel = nb.njit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)TBA
-# njitSerial = nb.njit(parallel=False,fastmath=FASTMATH,cache=CACHE)
 
 
 '''
@@ -74,7 +58,9 @@ def derivative(nbases,L):
     return der
 
 
-
+'''
+Simple Class to contain the abstraction of a discrete linear dynamic
+'''
 class DiscreteLinearDynamic():
     def __init__(self,A,B,C,state_init=None):
         self.A = A
@@ -99,7 +85,9 @@ class DiscreteLinearDynamic():
     def recordstate(self):
         self.history[self.index,:] = self.state.squeeze()
         
-
+'''
+Discrete KalmanFilter Class, inheriting the DiscreteLinearDynamic
+'''
 class KalmanFilter(DiscreteLinearDynamic):
     def __init__(self,A,B,C,Q,R,state_init=None,P_init=None):
         super().__init__(A,B,C,state_init)
