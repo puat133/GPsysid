@@ -1,6 +1,6 @@
 #%%
-import util
-import a
+import GPutil as util
+import finiteDimensionalGP as a
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns

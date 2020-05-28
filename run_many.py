@@ -4,7 +4,7 @@ with different parameters
 '''
 import subprocess
 import numpy as np
-import a
+# import a
 import time
 # samples=$1 
 # lQ=$2
