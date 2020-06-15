@@ -1,6 +1,6 @@
 import numpy as np
 import numba as nb
-import util
+import GPutils as util
 import h5py
 from tqdm import trange
 from numba.typed import List,Dict #numba typedList and typedDict

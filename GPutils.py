@@ -259,8 +259,8 @@ def moving_average(signal, window=3) :
 
         
 
-def _save_object(f,obj,end_here=False):
-    excluded_matrix = []
+def _save_object(f,obj,end_here=False,excluded_matrix = []):
+    
     if isinstance(obj,dict):
         dict_items = obj.items()
     else:
