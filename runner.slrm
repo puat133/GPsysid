@@ -2,19 +2,16 @@
 #SBATCH --time=5-0 #time-requested
 #SBATCH --mem-per-cpu=12G # memory
 ##SBATCH --cores-per-socket=8
-#SBATCH --output chemReactorGP-%J.log
+#SBATCH --output ParEstim_Nonlinear-%J.log
 ##First activate Numba because it has a correct numba version
 
 source /home/${USER}/.bashrc
 conda activate Numba 
 
 samples=$1 
-lQ=$2
-Vgain=$3
-ratioL=$4
-ell=$5
-folderName=$6
+dt=$2
+target=$3
 
 
-python chemReactor.py --samples-num=$samples --lQ=$lQ --Vgain=$Vgain --ratio-L=$ratioL --ell=$ell --folderName=$folderName  --resampling=3 --ma-smoother=7
+python ParEstim_Nonlinear.py --samples-num=$samples --sampling-period=$dt --target-acceptance=$target --initial-step-size=1e-1  --seed=0
 
