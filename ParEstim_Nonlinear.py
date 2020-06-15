@@ -29,20 +29,20 @@ import Dirichlet
 
 
 
-# @nbs.njitParallel
+@nbs.njitParallel
 def runEKF_from_parameters(nstate,ninput,parameters,matrices,measurement_history,input_history):
     ekf = constructEKF_from_parameters(nstate,ninput,parameters,matrices,measurement_history,input_history)
     ekf.propagate_till_end()
     ekf.yTilde_history = ekf.measured_y_hist - ekf.history@ekf.H.T
     return ekf
 
-# @nbs.njitParallel
+@nbs.njitParallel
 def test_EKF_from_parameters(nstate,ninput,parameters,matrices,measurement_history,input_history):
     ekf = constructEKF_from_parameters(nstate,ninput,parameters,matrices,measurement_history,input_history)
     fail = ekf.propagate_till_end_with_check()
     return ekf,fail
 
-# @nbs.njitParallel
+@nbs.njitParallel
 def negLogLikelihoodFromParameters(nstate,ninput,parameters,matrices,measurement_history,input_history):
     ekf,fail = test_EKF_from_parameters(nstate,ninput,parameters,matrices,measurement_history,input_history)
     # negLogLikelihood = np.sum(np.square(ekf.yTilde_history))#
@@ -53,7 +53,7 @@ def negLogLikelihoodFromParameters(nstate,ninput,parameters,matrices,measurement
         negLogLikelihood = np.inf
     return negLogLikelihood,0
 
-# @nbs.njitParallel
+@nbs.njitParallel
 def constructEKF_from_parameters(nstate,ninput,parameters,matrices,measurement_history,input_history):
     ekf = KF.ExtendedKalmanFilter(nstate,ninput,parameters,matrices,\
                                 NL.catalyst_dynamics_discrete,NL.P_dynamics_discrete,\

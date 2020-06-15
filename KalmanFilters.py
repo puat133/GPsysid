@@ -219,7 +219,7 @@ specEKF=[ ('nstate',nb.int64),
        ('parameters',nb.typeof(NL.parameters)),
        ('matrices',nb.typeof(NL.matrices))
 ]
-# @nb.jitclass(specEKF)
+@nb.jitclass(specEKF)
 class ExtendedKalmanFilter():
     def __init__(self,nstate,ninput,parameters,matrices,f,P_dyn,length=1000):
         self.nstate = nstate
@@ -317,7 +317,7 @@ class ExtendedKalmanFilter():
             
             
             self.record_S(self.S)
-        except np.linalg.LinAlgError:
+        except Exception : #np.linalg.LinAlgError:
             update_failed = True
         return update_failed
         
