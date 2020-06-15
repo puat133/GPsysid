@@ -7,7 +7,7 @@ import numba as nb
 from scipy.special import factorial
 from scipy.interpolate import pade
 import scipy.linalg as sla
-import control.matlab as ctmat
+# import control.matlab as ctmat
 from scipy.stats import invwishart
 import scipy.fftpack as FFT
 
