@@ -1,8 +1,8 @@
 import numba as nb
 
 
-CACHE = False
-PARALLEL = False
+CACHE = True
+PARALLEL = True
 FASTMATH = True
 jitSerial = nb.jit(parallel=False,fastmath=FASTMATH,cache=CACHE)
 jitParallel = nb.jit(parallel=PARALLEL,fastmath=FASTMATH,cache=CACHE)

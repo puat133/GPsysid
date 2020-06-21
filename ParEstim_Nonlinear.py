@@ -246,7 +246,8 @@ class EKFBased_ParameterEstimationSimulation(KF.SimulationBase):
         yTilde_hist = np.zeros((samples_length,time_length,output_num))
         S_hist = np.zeros((samples_length,time_length,output_num,output_num))        
         neglog_hist = np.zeros((samples_length))
-        if validate:
+        
+        if validate:# if doing validation, use different data set
             self.measurement_history = data.y_hist_second_ma
             self.parameters['Delta_z'] = data.Delta_z[1,:]
         

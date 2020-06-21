@@ -365,14 +365,21 @@ class ExtendedKalmanFilter():
 
     '''
     Check that there are no element in the state that are inf, nan, or negative as these values are always positive
+    Return True if sanity_check found something wrong
     '''
     def sanity_check(self):
-        cond_1 = np.any(np.isnan(self.state))
-        cond_2 = np.any(np.isinf(self.state))
-        cond_3 = np.any(self.state<0.)
-        cond_4 = np.any(np.isnan(self.S))
-        cond_5 = np.any(np.isnan(self.S))
-        return cond_1 or cond_2 or cond_3 or cond_4 or cond_5
+        if np.any(self.state<0.):
+            return True
+        elif np.any(np.isinf(self.state)):
+            return True
+        elif np.any(np.isnan(self.state)):
+            return True
+        elif np.any(np.isnan(self.S)):
+            return True
+        elif np.any(np.isinf(self.S)):
+            return True
+        else:
+            return False
 
 
 
